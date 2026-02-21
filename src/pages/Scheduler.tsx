@@ -1,42 +1,205 @@
 import { useState } from "react";
 import Layout from "@/components/Layout";
 import GlassCard from "@/components/GlassCard";
-import { FormField, StyledInput } from "@/components/FormComponents";
+import { FormField } from "@/components/FormComponents";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { CalendarDays, Plus, Send, Trash2, Loader2 } from "lucide-react";
 import { N8N_WEBHOOK_URL } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import LogoSelect from "@/components/LogoSelect";
+import {
+  useLeagueCountries,
+  useLeagues,
+  useTeams,
+  useChannels,
+  useCommentators,
+} from "@/hooks/useSchedulerData";
+import { COUNTRIES } from "@/lib/countries";
 
 interface Match {
   id: string;
-  homeTeam: string;
-  awayTeam: string;
+  countryCode: string;
+  leagueId: string;
+  homeTeamId: string;
+  awayTeamId: string;
   date: string;
   time: string;
-  tournament: string;
-  channel: string;
-  commentator: string;
+  channelId: string;
+  commentatorId: string;
 }
 
 const createEmptyMatch = (): Match => ({
   id: crypto.randomUUID(),
-  homeTeam: "",
-  awayTeam: "",
+  countryCode: "",
+  leagueId: "",
+  homeTeamId: "",
+  awayTeamId: "",
   date: "",
   time: "",
-  tournament: "",
-  channel: "",
-  commentator: "",
+  channelId: "",
+  commentatorId: "",
 });
+
+const MatchCard = ({
+  match,
+  index,
+  canDelete,
+  onUpdate,
+  onRemove,
+}: {
+  match: Match;
+  index: number;
+  canDelete: boolean;
+  onUpdate: (field: keyof Match, value: string) => void;
+  onRemove: () => void;
+}) => {
+  const { countries } = useLeagueCountries();
+  const { leagues } = useLeagues(match.countryCode);
+  const { teams } = useTeams(match.leagueId);
+  const { channels } = useChannels();
+  const { commentators } = useCommentators();
+
+  const countryOptions = countries.map((code) => {
+    const c = COUNTRIES.find((x) => x.code === code);
+    return { value: code, label: c ? c.name : code };
+  });
+
+  const leagueOptions = leagues.map((l) => ({
+    value: l.id,
+    label: l.name_ar,
+    logoUrl: l.logo_url,
+  }));
+
+  const teamOptions = teams.map((t) => ({
+    value: t.id,
+    label: t.name_ar,
+    logoUrl: t.logo_url,
+  }));
+
+  const channelOptions = channels.map((ch) => ({
+    value: ch.id,
+    label: ch.name_ar,
+    logoUrl: ch.logo_url,
+  }));
+
+  const commentatorOptions = commentators.map((cm) => ({
+    value: cm.id,
+    label: cm.name_ar,
+  }));
+
+  const handleCountryChange = (val: string) => {
+    onUpdate("countryCode", val);
+    onUpdate("leagueId", "");
+    onUpdate("homeTeamId", "");
+    onUpdate("awayTeamId", "");
+  };
+
+  const handleLeagueChange = (val: string) => {
+    onUpdate("leagueId", val);
+    onUpdate("homeTeamId", "");
+    onUpdate("awayTeamId", "");
+  };
+
+  return (
+    <GlassCard className="relative">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-bold text-primary">المباراة {index + 1}</h3>
+        {canDelete && (
+          <button
+            onClick={onRemove}
+            className="text-muted-foreground hover:text-destructive transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <FormField label="الدولة" required>
+          <LogoSelect
+            value={match.countryCode}
+            onValueChange={handleCountryChange}
+            options={countryOptions}
+            placeholder="اختر الدولة"
+          />
+        </FormField>
+
+        <FormField label="الدوري" required>
+          <LogoSelect
+            value={match.leagueId}
+            onValueChange={handleLeagueChange}
+            options={leagueOptions}
+            placeholder="اختر الدوري"
+            disabled={!match.countryCode}
+          />
+        </FormField>
+
+        <FormField label="الفريق المضيف" required>
+          <LogoSelect
+            value={match.homeTeamId}
+            onValueChange={(v) => onUpdate("homeTeamId", v)}
+            options={teamOptions}
+            placeholder="اختر الفريق المضيف"
+            disabled={!match.leagueId}
+          />
+        </FormField>
+
+        <FormField label="الفريق الضيف" required>
+          <LogoSelect
+            value={match.awayTeamId}
+            onValueChange={(v) => onUpdate("awayTeamId", v)}
+            options={teamOptions}
+            placeholder="اختر الفريق الضيف"
+            disabled={!match.leagueId}
+          />
+        </FormField>
+
+        <FormField label="التاريخ" required>
+          <Input
+            type="date"
+            value={match.date}
+            onChange={(e) => onUpdate("date", e.target.value)}
+            className="bg-secondary border-border text-foreground"
+          />
+        </FormField>
+
+        <FormField label="الوقت" required>
+          <Input
+            type="time"
+            value={match.time}
+            onChange={(e) => onUpdate("time", e.target.value)}
+            className="bg-secondary border-border text-foreground"
+          />
+        </FormField>
+
+        <FormField label="القناة">
+          <LogoSelect
+            value={match.channelId}
+            onValueChange={(v) => onUpdate("channelId", v)}
+            options={channelOptions}
+            placeholder="اختر القناة"
+          />
+        </FormField>
+
+        <FormField label="المعلق">
+          <LogoSelect
+            value={match.commentatorId}
+            onValueChange={(v) => onUpdate("commentatorId", v)}
+            options={commentatorOptions}
+            placeholder="اختر المعلق"
+          />
+        </FormField>
+      </div>
+    </GlassCard>
+  );
+};
 
 const Scheduler = () => {
   const [matches, setMatches] = useState<Match[]>([createEmptyMatch()]);
   const [sending, setSending] = useState(false);
 
-  const addMatch = () => {
-    setMatches([...matches, createEmptyMatch()]);
-  };
+  const addMatch = () => setMatches([...matches, createEmptyMatch()]);
 
   const removeMatch = (id: string) => {
     if (matches.length === 1) return;
@@ -48,12 +211,15 @@ const Scheduler = () => {
   };
 
   const handleSend = async () => {
-    // Validate
     const incomplete = matches.some(
-      (m) => !m.homeTeam.trim() || !m.awayTeam.trim() || !m.date || !m.time
+      (m) => !m.homeTeamId || !m.awayTeamId || !m.date || !m.time || !m.leagueId
     );
     if (incomplete) {
-      toast({ title: "خطأ", description: "يرجى ملء الفرق والتاريخ والوقت لجميع المباريات", variant: "destructive" });
+      toast({
+        title: "خطأ",
+        description: "يرجى ملء جميع الحقول المطلوبة لكل مباراة",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -72,7 +238,10 @@ const Scheduler = () => {
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      toast({ title: "تم الإرسال", description: `تم إرسال ${matches.length} مباراة بنجاح إلى نظام الجدولة` });
+      toast({
+        title: "تم الإرسال",
+        description: `تم إرسال ${matches.length} مباراة بنجاح إلى نظام الجدولة`,
+      });
       setMatches([createEmptyMatch()]);
     } catch (error: any) {
       toast({ title: "خطأ في الإرسال", description: error.message, variant: "destructive" });
@@ -106,83 +275,17 @@ const Scheduler = () => {
 
         <div className="space-y-4">
           {matches.map((match, index) => (
-            <GlassCard key={match.id} className="relative">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-primary">
-                  المباراة {index + 1}
-                </h3>
-                {matches.length > 1 && (
-                  <button
-                    onClick={() => removeMatch(match.id)}
-                    className="text-muted-foreground hover:text-destructive transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <FormField label="الفريق المضيف" required>
-                  <StyledInput
-                    value={match.homeTeam}
-                    onChange={(e) => updateMatch(match.id, "homeTeam", e.target.value)}
-                    placeholder="الفريق المضيف"
-                  />
-                </FormField>
-
-                <FormField label="الفريق الضيف" required>
-                  <StyledInput
-                    value={match.awayTeam}
-                    onChange={(e) => updateMatch(match.id, "awayTeam", e.target.value)}
-                    placeholder="الفريق الضيف"
-                  />
-                </FormField>
-
-                <FormField label="البطولة">
-                  <StyledInput
-                    value={match.tournament}
-                    onChange={(e) => updateMatch(match.id, "tournament", e.target.value)}
-                    placeholder="اسم البطولة"
-                  />
-                </FormField>
-
-                <FormField label="التاريخ" required>
-                  <StyledInput
-                    type="date"
-                    value={match.date}
-                    onChange={(e) => updateMatch(match.id, "date", e.target.value)}
-                  />
-                </FormField>
-
-                <FormField label="الوقت" required>
-                  <StyledInput
-                    type="time"
-                    value={match.time}
-                    onChange={(e) => updateMatch(match.id, "time", e.target.value)}
-                  />
-                </FormField>
-
-                <FormField label="القناة">
-                  <StyledInput
-                    value={match.channel}
-                    onChange={(e) => updateMatch(match.id, "channel", e.target.value)}
-                    placeholder="القناة الناقلة"
-                  />
-                </FormField>
-
-                <FormField label="المعلق">
-                  <StyledInput
-                    value={match.commentator}
-                    onChange={(e) => updateMatch(match.id, "commentator", e.target.value)}
-                    placeholder="اسم المعلق"
-                  />
-                </FormField>
-              </div>
-            </GlassCard>
+            <MatchCard
+              key={match.id}
+              match={match}
+              index={index}
+              canDelete={matches.length > 1}
+              onUpdate={(field, value) => updateMatch(match.id, field, value)}
+              onRemove={() => removeMatch(match.id)}
+            />
           ))}
         </div>
 
-        {/* Summary */}
         <GlassCard className="gradient-neon">
           <div className="flex items-center justify-between">
             <div>
