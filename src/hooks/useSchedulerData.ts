@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+export interface Country {
+  code: string;
+  name_ar: string;
+  flag_emoji: string;
+}
+
 export interface League {
   id: string;
   name_ar: string;
@@ -26,17 +32,17 @@ export interface Commentator {
   name_ar: string;
 }
 
-export function useLeagueCountries() {
-  const [countries, setCountries] = useState<string[]>([]);
+export function useCountries() {
+  const [countries, setCountries] = useState<Country[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     supabase
-      .from("leagues")
-      .select("country_code")
+      .from("countries")
+      .select("code, name_ar, flag_emoji")
+      .order("name_ar")
       .then(({ data }) => {
-        const unique = [...new Set((data || []).map((d) => d.country_code).filter(Boolean))];
-        setCountries(unique.sort());
+        setCountries(data || []);
         setLoading(false);
       });
   }, []);
@@ -49,10 +55,7 @@ export function useLeagues(countryCode: string) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!countryCode) {
-      setLeagues([]);
-      return;
-    }
+    if (!countryCode) { setLeagues([]); return; }
     setLoading(true);
     supabase
       .from("leagues")
@@ -72,10 +75,7 @@ export function useTeams(leagueId: string) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!leagueId) {
-      setTeams([]);
-      return;
-    }
+    if (!leagueId) { setTeams([]); return; }
     setLoading(true);
     supabase
       .from("teams")
