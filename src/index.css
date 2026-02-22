@@ -61,7 +61,9 @@
   body {
     @apply bg-background text-foreground font-tajawal antialiased;
     direction: rtl;
+    -webkit-tap-highlight-color: transparent;
   }
+
 }
 
 @layer utilities {
@@ -89,5 +91,9 @@
 
   .gradient-neon {
     background: linear-gradient(135deg, hsl(var(--neon) / 0.15), hsl(var(--neon) / 0.05));
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
