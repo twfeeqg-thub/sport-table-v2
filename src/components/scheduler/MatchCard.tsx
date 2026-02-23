@@ -46,7 +46,7 @@ interface MatchCardProps {
 const MatchCard = ({ match, index, canDelete, onUpdate, onRemove }: MatchCardProps) => {
   const { countries } = useCountries();
   const { leagues } = useLeagues(match.countryCode);
-  const { teams } = useTeams(match.leagueId);
+  const { teams } = useTeams(match.leagueId, match.countryCode);
   const { channels } = useChannels();
   const { commentators } = useCommentators();
 
@@ -107,16 +107,16 @@ const MatchCard = ({ match, index, canDelete, onUpdate, onRemove }: MatchCardPro
           <LogoSelect value={match.countryCode} onValueChange={handleCountryChange} options={countryOptions} placeholder="اختر الدولة" />
         </FormField>
 
-        <FormField label="الدوري" required>
-          <LogoSelect value={match.leagueId} onValueChange={handleLeagueChange} options={leagueOptions} placeholder="اختر الدوري" disabled={!match.countryCode} />
+        <FormField label="الدوري">
+          <LogoSelect value={match.leagueId} onValueChange={handleLeagueChange} options={leagueOptions} placeholder="اختر الدوري (اختياري)" disabled={!match.countryCode} />
         </FormField>
 
         <FormField label="الفريق المضيف" required>
-          <LogoSelect value={match.homeTeamId} onValueChange={(v) => onUpdate("homeTeamId", v)} options={teamOptions} placeholder="اختر الفريق" disabled={!match.leagueId} />
+          <LogoSelect value={match.homeTeamId} onValueChange={(v) => onUpdate("homeTeamId", v)} options={teamOptions} placeholder="اختر الفريق" disabled={!match.countryCode} />
         </FormField>
 
         <FormField label="الفريق الضيف" required>
-          <LogoSelect value={match.awayTeamId} onValueChange={(v) => onUpdate("awayTeamId", v)} options={teamOptions} placeholder="اختر الفريق" disabled={!match.leagueId} />
+          <LogoSelect value={match.awayTeamId} onValueChange={(v) => onUpdate("awayTeamId", v)} options={teamOptions} placeholder="اختر الفريق" disabled={!match.countryCode} />
         </FormField>
 
         <FormField label="التاريخ" required>

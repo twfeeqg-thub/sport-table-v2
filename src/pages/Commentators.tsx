@@ -2,15 +2,18 @@ import { useState } from "react";
 import Layout from "@/components/Layout";
 import GlassCard from "@/components/GlassCard";
 import CountrySelector from "@/components/CountrySelector";
+import FileUpload from "@/components/FileUpload";
 import { FormField, StyledInput } from "@/components/FormComponents";
 import { Button } from "@/components/ui/button";
 import { Mic, Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
+import { checkDuplicate } from "@/lib/checkDuplicate";
 
 const Commentators = () => {
   const [name, setName] = useState("");
   const [country, setCountry] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,13 +25,21 @@ const Commentators = () => {
 
     setLoading(true);
     try {
+      const exists = await checkDuplicate("commentators", name);
+      if (exists) {
+        toast({ title: "تحذير", description: "هذا الاسم موجود بالفعل", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.from("commentators").insert({
         name: name.trim(),
         country,
+        image_url: imageUrl || null,
       });
       if (error) throw error;
       toast({ title: "تمت الإضافة", description: "تم إضافة المعلق بنجاح" });
-      setName(""); setCountry("");
+      setName(""); setCountry(""); setImageUrl("");
     } catch (error: any) {
       toast({ title: "خطأ", description: error.message, variant: "destructive" });
     } finally {
@@ -58,6 +69,14 @@ const Commentators = () => {
             </FormField>
 
             <CountrySelector value={country} onChange={setCountry} />
+
+            <FileUpload
+              bucket="assets"
+              folder="commentators"
+              onUpload={setImageUrl}
+              label="صورة المعلق (اختياري)"
+              currentUrl={imageUrl}
+            />
 
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? <Loader2 className="w-4 h-4 animate-spin ml-2" /> : <Plus className="w-4 h-4 ml-2" />}

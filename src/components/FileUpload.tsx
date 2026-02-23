@@ -13,7 +13,7 @@ interface FileUploadProps {
   currentUrl?: string;
 }
 
-const FileUpload = ({ bucket, folder = "", onUpload, accept = "image/*", label = "رفع ملف", currentUrl }: FileUploadProps) => {
+const FileUpload = ({ bucket, folder = "", onUpload, accept = "image/png,image/jpeg,image/jpg,image/gif,image/webp,image/svg+xml", label = "رفع ملف", currentUrl }: FileUploadProps) => {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(currentUrl || null);
   const fileRef = useRef<HTMLInputElement>(null);
