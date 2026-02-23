@@ -24,7 +24,7 @@ const Scheduler = () => {
   };
 
   const updateMatch = (id: string, field: keyof Match, value: string) => {
-    setMatches(matches.map((m) => (m.id === id ? { ...m, [field]: value } : m)));
+    setMatches((prev) => prev.map((m) => (m.id === id ? { ...m, [field]: value } : m)));
   };
 
   const validateAndReview = () => {
