@@ -29,7 +29,7 @@ const Scheduler = () => {
 
   const validateAndReview = () => {
     const incomplete = matches.some(
-      (m) => !m.homeTeamId || !m.awayTeamId || !m.date || !m.time || !m.leagueId
+      (m) => !m.homeTeamId || !m.awayTeamId || !m.date || !m.time
     );
     if (incomplete) {
       toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة لكل مباراة", variant: "destructive" });

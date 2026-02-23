@@ -70,22 +70,24 @@ export function useLeagues(countryCode: string) {
   return { leagues, loading };
 }
 
-export function useTeams(leagueId: string) {
+export function useTeams(leagueId: string, countryCode?: string) {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!leagueId) { setTeams([]); return; }
+    if (!leagueId && !countryCode) { setTeams([]); return; }
     setLoading(true);
-    supabase
-      .from("teams")
-      .select("id, name_ar, logo_url, league_id")
-      .eq("league_id", leagueId)
-      .then(({ data }) => {
-        setTeams(data || []);
-        setLoading(false);
-      });
-  }, [leagueId]);
+    let query = supabase.from("teams").select("id, name_ar, logo_url, league_id");
+    if (leagueId) {
+      query = query.eq("league_id", leagueId);
+    } else if (countryCode) {
+      query = query.eq("country_code", countryCode);
+    }
+    query.then(({ data }) => {
+      setTeams(data || []);
+      setLoading(false);
+    });
+  }, [leagueId, countryCode]);
 
   return { teams, loading };
 }

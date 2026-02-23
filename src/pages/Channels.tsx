@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tv, Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
+import { checkDuplicate } from "@/lib/checkDuplicate";
 
 const Channels = () => {
   const [name, setName] = useState("");
@@ -25,6 +26,13 @@ const Channels = () => {
 
     setLoading(true);
     try {
+      const exists = await checkDuplicate("channels", name);
+      if (exists) {
+        toast({ title: "تحذير", description: "هذا الاسم موجود بالفعل", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.from("channels").insert({
         name: name.trim(),
         country,
