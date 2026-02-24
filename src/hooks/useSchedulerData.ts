@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export interface Country {
@@ -19,6 +19,7 @@ export interface Team {
   name_ar: string;
   logo_url: string | null;
   league_id: string;
+  country_code: string;
 }
 
 export interface Channel {
@@ -30,6 +31,7 @@ export interface Channel {
 export interface Commentator {
   id: string;
   name_ar: string;
+  image_url: string | null;
 }
 
 export function useCountries() {
@@ -73,11 +75,16 @@ export function useLeagues(countryCode: string) {
 export function useTeams(leagueId: string, countryCode?: string) {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(false);
+  const prevKey = useRef("");
 
   useEffect(() => {
+    const key = `${leagueId}|${countryCode}`;
+    if (key === prevKey.current) return;
+    prevKey.current = key;
+
     if (!leagueId && !countryCode) { setTeams([]); return; }
     setLoading(true);
-    let query = supabase.from("teams").select("id, name_ar, logo_url, league_id");
+    let query = supabase.from("teams").select("id, name_ar, logo_url, league_id, country_code");
     if (leagueId) {
       query = query.eq("league_id", leagueId);
     } else if (countryCode) {
@@ -116,7 +123,7 @@ export function useCommentators() {
   useEffect(() => {
     supabase
       .from("commentators")
-      .select("id, name_ar")
+      .select("id, name_ar, image_url")
       .then(({ data }) => {
         setCommentators(data || []);
         setLoading(false);

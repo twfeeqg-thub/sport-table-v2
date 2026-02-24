@@ -33,8 +33,8 @@ const Tournaments = () => {
       }
 
       const { error } = await supabase.from("tournaments").insert({
-        name: name.trim(),
-        country,
+        name_ar: name.trim(),
+        country_code: country,
         logo_url: logo || null,
       });
       if (error) throw error;

@@ -4,7 +4,7 @@ export async function checkDuplicate(table: string, name: string): Promise<boole
   const { data } = await supabase
     .from(table)
     .select("id")
-    .ilike("name", name.trim())
+    .ilike("name_ar", name.trim())
     .limit(1);
   return (data?.length ?? 0) > 0;
 }

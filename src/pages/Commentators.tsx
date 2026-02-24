@@ -33,8 +33,8 @@ const Commentators = () => {
       }
 
       const { error } = await supabase.from("commentators").insert({
-        name: name.trim(),
-        country,
+        name_ar: name.trim(),
+        country_code: country,
         image_url: imageUrl || null,
       });
       if (error) throw error;
