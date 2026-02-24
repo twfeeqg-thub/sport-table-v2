@@ -1,88 +1,97 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Upload, X, Image as ImageIcon } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import { toast } from "@/hooks/use-toast";
+import { Image as ImageIcon, Upload, X } from "lucide-react";
 
 interface FileUploadProps {
-  bucket: string;
-  folder?: string;
-  onUpload: (url: string) => void;
+  onFileChange: (file: File | null) => void;
   accept?: string;
   label?: string;
-  currentUrl?: string;
+  previewUrl?: string | null;
+  disabled?: boolean;
 }
 
-const FileUpload = ({ bucket, folder = "", onUpload, accept = "image/png,image/jpeg,image/jpg,image/gif,image/webp,image/svg+xml", label = "رفع ملف", currentUrl }: FileUploadProps) => {
-  const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState<string | null>(currentUrl || null);
-  const fileRef = useRef<HTMLInputElement>(null);
+const FileUpload = ({
+  onFileChange,
+  accept = "image/*",
+  label = "Upload File",
+  previewUrl,
+  disabled = false,
+}: FileUploadProps) => {
+  const [internalPreview, setInternalPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  useEffect(() => {
+    let objectUrl: string | null = null;
 
-    setUploading(true);
-    try {
-      const ext = file.name.split(".").pop();
-      const fileName = `${folder ? folder + "/" : ""}${Date.now()}.${ext}`;
+    if (previewUrl) {
+      setInternalPreview(previewUrl);
+    } else if (internalPreview?.startsWith("blob:")) {
+      objectUrl = internalPreview;
+      setInternalPreview(null);
+    }
 
-      const { error } = await supabase.storage.from(bucket).upload(fileName, file, {
-        cacheControl: "3600",
-        upsert: false,
-      });
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [previewUrl]);
 
-      if (error) throw error;
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    if (internalPreview?.startsWith("blob:")) {
+      URL.revokeObjectURL(internalPreview);
+    }
+    if (file) {
+      const newObjectUrl = URL.createObjectURL(file);
+      setInternalPreview(newObjectUrl);
+      onFileChange(file);
+    } else {
+      setInternalPreview(null);
+      onFileChange(null);
+    }
+  };
 
-      const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(fileName);
-      
-      setPreview(publicUrl);
-      onUpload(publicUrl);
-      toast({ title: "تم الرفع بنجاح", description: "تم رفع الملف بنجاح" });
-    } catch (error: any) {
-      toast({ title: "خطأ في الرفع", description: error.message, variant: "destructive" });
-    } finally {
-      setUploading(false);
+  const handleRemove = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onFileChange(null);
+    setInternalPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
   return (
     <div>
-      <label className="block text-sm font-medium text-muted-foreground mb-2">{label}</label>
-      <div className="glass-card p-4 flex flex-col items-center gap-3">
-        {preview ? (
-          <div className="relative">
-            <img src={preview} alt="معاينة" className="w-20 h-20 object-contain rounded-lg" />
-            <button
-              onClick={() => { setPreview(null); onUpload(""); }}
-              className="absolute -top-2 -left-2 w-5 h-5 bg-destructive rounded-full flex items-center justify-center"
-            >
-              <X className="w-3 h-3 text-destructive-foreground" />
-            </button>
-          </div>
+      <label className="block text-sm font-medium text-foreground mb-1">{label}</label>
+      <div
+        className={`relative flex justify-center items-center w-full h-32 rounded-md border-2 border-dashed ${ disabled ? "bg-muted/50 border-muted-foreground/20 cursor-not-allowed" : "border-muted-foreground/50 bg-secondary hover:bg-muted transition-colors cursor-pointer"}`}
+        onClick={() => !disabled && fileInputRef.current?.click()}
+      >
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          className="hidden"
+          accept={accept}
+          disabled={disabled}
+        />
+        {internalPreview ? (
+          <>
+            <img src={internalPreview} alt="File preview" className="h-full w-full object-contain rounded-md p-1" />
+            {!disabled && (
+              <Button onClick={handleRemove} variant="ghost" size="icon" className="absolute top-1 right-1 bg-background/50 backdrop-blur-sm rounded-full w-7 h-7">
+                <X className="w-4 h-4" />
+              </Button>
+            )}
+          </>
         ) : (
-          <div className="w-20 h-20 rounded-lg bg-secondary flex items-center justify-center">
-            <ImageIcon className="w-8 h-8 text-muted-foreground" />
+          <div className="text-center text-muted-foreground">
+            <Upload className="mx-auto h-8 w-8" />
+            <p className="mt-1 text-xs">Click to browse or drag and drop</p>
           </div>
         )}
-        <input
-          ref={fileRef}
-          type="file"
-          accept={accept}
-          onChange={handleUpload}
-          className="hidden"
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-          className="border-border text-foreground"
-        >
-          <Upload className="w-4 h-4 ml-2" />
-          {uploading ? "جاري الرفع..." : label}
-        </Button>
       </div>
     </div>
   );
