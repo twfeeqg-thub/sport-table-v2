@@ -3,6 +3,7 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, Plus, Eye, Loader2 } from "lucide-react";
 import { N8N_WEBHOOK_URL } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import MatchCard, { Match, createEmptyMatch } from "@/components/scheduler/MatchCard";
@@ -38,11 +39,36 @@ const Scheduler = () => {
     setStep("review");
   };
 
+  const resolveMatchData = async (match: Match) => {
+    const [teamRes, leagueRes, channelRes, commentatorRes, countryRes] = await Promise.all([
+      supabase.from("teams").select("id, name_ar, logo_url").in("id", [match.homeTeamId, match.awayTeamId]),
+      match.leagueId ? supabase.from("leagues").select("id, name_ar, logo_url").eq("id", match.leagueId).single() : Promise.resolve({ data: null }),
+      match.channelId ? supabase.from("channels").select("id, name_ar, logo_url").eq("id", match.channelId).single() : Promise.resolve({ data: null }),
+      match.commentatorId ? supabase.from("commentators").select("id, name_ar, image_url").eq("id", match.commentatorId).single() : Promise.resolve({ data: null }),
+      match.countryCode ? supabase.from("countries").select("code, name_ar, flag_emoji").eq("code", match.countryCode).single() : Promise.resolve({ data: null }),
+    ]);
+
+    const teamsMap = (teamRes.data || []).reduce<Record<string, any>>((acc, t) => { acc[t.id] = t; return acc; }, {});
+
+    return {
+      date: match.date,
+      time: match.time,
+      country: countryRes.data || null,
+      league: leagueRes.data || null,
+      homeTeam: teamsMap[match.homeTeamId] || { id: match.homeTeamId },
+      awayTeam: teamsMap[match.awayTeamId] || { id: match.awayTeamId },
+      channel: channelRes.data || null,
+      commentator: commentatorRes.data || null,
+    };
+  };
+
   const handleConfirmSend = async () => {
     setSending(true);
     try {
+      const enrichedMatches = await Promise.all(matches.map(resolveMatchData));
+
       const payload = {
-        matches: matches.map(({ id, ...rest }) => rest),
+        matches: enrichedMatches,
         sentAt: new Date().toISOString(),
         sentBy: { uid: user?.id, email: user?.email, name: user?.user_metadata?.display_name },
       };
@@ -97,7 +123,6 @@ const Scheduler = () => {
           ))}
         </div>
 
-        {/* Floating add button */}
         <div className="flex justify-center">
           <button
             onClick={addMatch}
@@ -107,7 +132,6 @@ const Scheduler = () => {
           </button>
         </div>
 
-        {/* Review button */}
         <Button onClick={validateAndReview} className="w-full" size="lg">
           <Eye className="w-5 h-5 ml-2" />
           مراجعة وإرسال ({matches.length})

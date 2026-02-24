@@ -34,8 +34,8 @@ const Channels = () => {
       }
 
       const { error } = await supabase.from("channels").insert({
-        name: name.trim(),
-        country,
+        name_ar: name.trim(),
+        country_code: country,
         logo_url: logo || null,
         frequency: frequency.trim() || null,
       });

@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import GlassCard from "@/components/GlassCard";
 import { FormField } from "@/components/FormComponents";
 import { Input } from "@/components/ui/input";
@@ -78,18 +79,23 @@ const MatchCard = ({ match, index, canDelete, onUpdate, onRemove }: MatchCardPro
     label: cm.name_ar,
   }));
 
-  const handleCountryChange = (val: string) => {
+  const handleCountryChange = useCallback((val: string) => {
     onUpdate("countryCode", val);
-    onUpdate("leagueId", "");
-    onUpdate("homeTeamId", "");
-    onUpdate("awayTeamId", "");
-  };
+    // Defer clearing dependent fields to avoid batched re-render issues
+    setTimeout(() => {
+      onUpdate("leagueId", "");
+      onUpdate("homeTeamId", "");
+      onUpdate("awayTeamId", "");
+    }, 0);
+  }, [onUpdate]);
 
-  const handleLeagueChange = (val: string) => {
+  const handleLeagueChange = useCallback((val: string) => {
     onUpdate("leagueId", val);
-    onUpdate("homeTeamId", "");
-    onUpdate("awayTeamId", "");
-  };
+    setTimeout(() => {
+      onUpdate("homeTeamId", "");
+      onUpdate("awayTeamId", "");
+    }, 0);
+  }, [onUpdate]);
 
   return (
     <GlassCard className="relative">
