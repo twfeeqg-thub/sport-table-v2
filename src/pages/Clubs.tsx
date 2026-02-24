@@ -1,45 +1,89 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
+import { checkDuplicate } from "@/lib/checkDuplicate";
 import Layout from "@/components/Layout";
 import GlassCard from "@/components/GlassCard";
-import CountrySelector from "@/components/CountrySelector";
 import FileUpload from "@/components/FileUpload";
 import { FormField, StyledInput } from "@/components/FormComponents";
 import { Button } from "@/components/ui/button";
 import { Shield, Plus, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import { toast } from "@/hooks/use-toast";
-import { checkDuplicate } from "@/lib/checkDuplicate";
+import SearchableSelector, { SelectorOption } from "@/components/SearchableSelector";
 
 const Clubs = () => {
+  const { user } = useAuth();
   const [name, setName] = useState("");
   const [country, setCountry] = useState("");
-  const [logo, setLogo] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [countryOptions, setCountryOptions] = useState<SelectorOption[]>([]);
+
+  useEffect(() => {
+    const fetchCountries = async () => {
+      const { data, error } = await supabase.from("countries").select("code, name_ar");
+      if (error) {
+        console.error("Error fetching countries:", error);
+        return;
+      }
+      const options = data.map((c) => ({ value: c.code, label: c.name_ar }));
+      setCountryOptions(options);
+    };
+    fetchCountries();
+  }, []);
+
+  const uploadLogo = async (file: File): Promise<string> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `clubs/${fileName}`;
+
+    const { error } = await supabase.storage.from("assets").upload(filePath, file);
+    if (error) throw new Error(`Failed to upload logo: ${error.message}`);
+
+    const { data } = supabase.storage.from("assets").getPublicUrl(filePath);
+    return data.publicUrl;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !country) {
-      toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" });
+    if (!user) {
+      toast({ title: "Error", description: "Login required", variant: "destructive" });
+      return;
+    }
+    if (!name.trim() || !country || !logoFile) {
+      toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة وتحميل الشعار", variant: "destructive" });
       return;
     }
 
     setLoading(true);
     try {
-      const exists = await checkDuplicate("teams", name);
+      const exists = await checkDuplicate("teams", "name_ar", name.trim());
       if (exists) {
-        toast({ title: "تحذير", description: "هذا الاسم موجود بالفعل", variant: "destructive" });
-        setLoading(false);
-        return;
+        const overwrite = window.confirm("This name already exists. Do you want to overwrite it?");
+        if (!overwrite) {
+          setLoading(false);
+          return;
+        }
       }
 
-      const { error } = await supabase.from("teams").insert({
-        name_ar: name.trim(),
-        country_code: country,
-        logo_url: logo || null,
-      });
+      const logoUrl = await uploadLogo(logoFile);
+
+      const { error } = await supabase.from("teams").upsert(
+        {
+          name_ar: name.trim(),
+          country_code: country,
+          logo_url: logoUrl,
+          user_id: user.id,
+        },
+        { onConflict: "name_ar" }
+      );
+
       if (error) throw error;
-      toast({ title: "تمت الإضافة", description: "تم إضافة النادي بنجاح" });
-      setName(""); setCountry(""); setLogo("");
+
+      toast({ title: "تم بنجاح", description: exists ? "تم تحديث النادي بنجاح" : "تم إضافة النادي بنجاح" });
+      setName("");
+      setCountry("");
+      setLogoFile(null);
     } catch (error: any) {
       toast({ title: "خطأ", description: error.message, variant: "destructive" });
     } finally {
@@ -55,32 +99,39 @@ const Clubs = () => {
             <Shield className="w-7 h-7" />
             إدارة الأندية
           </h1>
-          <p className="text-muted-foreground">إضافة أندية جديدة إلى النظام</p>
+          <p className="text-muted-foreground">إضافة أو تحديث أندية في النظام</p>
         </div>
 
         <GlassCard>
           <form onSubmit={handleSubmit} className="space-y-5">
+            <SearchableSelector
+              options={countryOptions}
+              value={country}
+              onChange={setCountry}
+              placeholder="اختر الدولة"
+              searchPlaceholder="ابحث عن دولة..."
+              emptyText="لم يتم العثور على دول."
+            />
+
             <FormField label="اسم النادي" required>
               <StyledInput
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="مثال: ريال مدريد"
+                disabled={!country}
               />
             </FormField>
 
-            <CountrySelector value={country} onChange={setCountry} />
-
             <FileUpload
-              bucket="assets"
-              folder="clubs"
-              onUpload={setLogo}
+              onFileChange={setLogoFile}
               label="شعار النادي"
-              currentUrl={logo}
+              disabled={!name.trim()}
+              previewUrl={logoFile ? URL.createObjectURL(logoFile) : null}
             />
 
-            <Button type="submit" disabled={loading} className="w-full">
+            <Button type="submit" disabled={!country || !name.trim() || !logoFile || loading} className="w-full">
               {loading ? <Loader2 className="w-4 h-4 animate-spin ml-2" /> : <Plus className="w-4 h-4 ml-2" />}
-              إضافة النادي
+              إضافة / تحديث النادي
             </Button>
           </form>
         </GlassCard>

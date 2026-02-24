@@ -81,20 +81,15 @@ const MatchCard = ({ match, index, canDelete, onUpdate, onRemove }: MatchCardPro
 
   const handleCountryChange = useCallback((val: string) => {
     onUpdate("countryCode", val);
-    // Defer clearing dependent fields to avoid batched re-render issues
-    setTimeout(() => {
-      onUpdate("leagueId", "");
-      onUpdate("homeTeamId", "");
-      onUpdate("awayTeamId", "");
-    }, 0);
+    onUpdate("leagueId", "");
+    onUpdate("homeTeamId", "");
+    onUpdate("awayTeamId", "");
   }, [onUpdate]);
 
   const handleLeagueChange = useCallback((val: string) => {
     onUpdate("leagueId", val);
-    setTimeout(() => {
-      onUpdate("homeTeamId", "");
-      onUpdate("awayTeamId", "");
-    }, 0);
+    onUpdate("homeTeamId", "");
+    onUpdate("awayTeamId", "");
   }, [onUpdate]);
 
   return (

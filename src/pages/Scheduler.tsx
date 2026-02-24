@@ -42,10 +42,10 @@ const Scheduler = () => {
   const resolveMatchData = async (match: Match) => {
     const [teamRes, leagueRes, channelRes, commentatorRes, countryRes] = await Promise.all([
       supabase.from("teams").select("id, name_ar, logo_url").in("id", [match.homeTeamId, match.awayTeamId]),
-      match.leagueId ? supabase.from("leagues").select("id, name_ar, logo_url").eq("id", match.leagueId).single() : Promise.resolve({ data: null }),
-      match.channelId ? supabase.from("channels").select("id, name_ar, logo_url").eq("id", match.channelId).single() : Promise.resolve({ data: null }),
-      match.commentatorId ? supabase.from("commentators").select("id, name_ar, image_url").eq("id", match.commentatorId).single() : Promise.resolve({ data: null }),
-      match.countryCode ? supabase.from("countries").select("code, name_ar, flag_emoji").eq("code", match.countryCode).single() : Promise.resolve({ data: null }),
+      match.leagueId ? supabase.from("leagues").select("id, name_ar, logo_url").eq("id", match.leagueId) : Promise.resolve({ data: null }),
+      match.channelId ? supabase.from("channels").select("id, name_ar, logo_url").eq("id", match.channelId) : Promise.resolve({ data: null }),
+      match.commentatorId ? supabase.from("commentators").select("id, name_ar, image_url").eq("id", match.commentatorId) : Promise.resolve({ data: null }),
+      match.countryCode ? supabase.from("countries").select("code, name_ar, flag_emoji").eq("code", match.countryCode) : Promise.resolve({ data: null }),
     ]);
 
     const teamsMap = (teamRes.data || []).reduce<Record<string, any>>((acc, t) => { acc[t.id] = t; return acc; }, {});
@@ -53,12 +53,12 @@ const Scheduler = () => {
     return {
       date: match.date,
       time: match.time,
-      country: countryRes.data || null,
-      league: leagueRes.data || null,
+      country: countryRes.data?.[0] || null,
+      league: leagueRes.data?.[0] || null,
       homeTeam: teamsMap[match.homeTeamId] || { id: match.homeTeamId },
       awayTeam: teamsMap[match.awayTeamId] || { id: match.awayTeamId },
-      channel: channelRes.data || null,
-      commentator: commentatorRes.data || null,
+      channel: channelRes.data?.[0] || null,
+      commentator: commentatorRes.data?.[0] || null,
     };
   };
 
