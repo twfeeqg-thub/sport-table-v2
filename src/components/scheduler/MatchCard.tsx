@@ -1,142 +1,165 @@
-import { useCallback } from "react";
-import GlassCard from "@/components/GlassCard";
-import { FormField } from "@/components/FormComponents";
-import { Input } from "@/components/ui/input";
-import { Trash2 } from "lucide-react";
-import LogoSelect from "@/components/LogoSelect";
-import {
-  useCountries,
-  useLeagues,
-  useTeams,
-  useChannels,
-  useCommentators,
-} from "@/hooks/useSchedulerData";
+import { Trash2, GripVertical } from "lucide-react";
+import { Country, League, Team, Channel, Commentator } from "@/pages/Scheduler";
 
+// Add countryCode to the Match interface for cascading selects
 export interface Match {
   id: string;
-  countryCode: string;
-  leagueId: string;
+  countryCode: string; // Used to filter leagues and teams
   homeTeamId: string;
   awayTeamId: string;
-  date: string;
-  time: string;
+  leagueId: string;
   channelId: string;
   commentatorId: string;
+  date: string;
+  time: string;
 }
 
 export const createEmptyMatch = (): Match => ({
   id: crypto.randomUUID(),
   countryCode: "",
-  leagueId: "",
   homeTeamId: "",
   awayTeamId: "",
-  date: "",
-  time: "",
+  leagueId: "",
   channelId: "",
   commentatorId: "",
+  date: "",
+  time: "",
 });
 
 interface MatchCardProps {
   match: Match;
   index: number;
   canDelete: boolean;
-  onUpdate: (field: keyof Match, value: string) => void;
+  onUpdate: (id: string, field: keyof Match, value: string) => void;
   onRemove: () => void;
+  countries: Country[];
+  leagues: League[];
+  teams: Team[];
+  channels: Channel[];
+  commentators: Commentator[];
 }
 
-const MatchCard = ({ match, index, canDelete, onUpdate, onRemove }: MatchCardProps) => {
-  const { countries } = useCountries();
-  const { leagues } = useLeagues(match.countryCode);
-  const { teams } = useTeams(match.leagueId, match.countryCode);
-  const { channels } = useChannels();
-  const { commentators } = useCommentators();
+const MatchCard = ({ 
+  match, 
+  onUpdate, 
+  onRemove, 
+  canDelete,
+  countries,
+  leagues,
+  teams,
+  channels,
+  commentators
+}: MatchCardProps) => {
 
-  const countryOptions = countries.map((c) => ({
-    value: c.code,
-    label: `${c.flag_emoji} ${c.name_ar}`,
-  }));
+  const renderSelect = (
+    value: string,
+    onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void,
+    placeholder: string,
+    options: { value: string; label: string; }[],
+    disabled?: boolean
+  ) => (
+    <select
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      className="w-full bg-slate-200/50 dark:bg-slate-800/60 text-foreground text-sm rounded-lg border-slate-200/50 dark:border-slate-700/50 shadow-sm focus:ring-2 focus:ring-primary focus:border-primary/5 transition-all disabled:opacity-50"
+    >
+      <option value="">{placeholder}</option>
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  );
 
-  const leagueOptions = leagues.map((l) => ({
-    value: l.id,
-    label: l.name_ar,
-    logoUrl: l.logo_url,
-  }));
+  // Filter leagues based on the selected country in THIS card
+  const filteredLeagues = leagues.filter(l => l.country_code === match.countryCode);
 
-  const teamOptions = teams.map((t) => ({
-    value: t.id,
-    label: t.name_ar,
-    logoUrl: t.logo_url,
-  }));
-
-  const channelOptions = channels.map((ch) => ({
-    value: ch.id,
-    label: ch.name_ar,
-    logoUrl: ch.logo_url,
-  }));
-
-  const commentatorOptions = commentators.map((cm) => ({
-    value: cm.id,
-    label: cm.name_ar,
-  }));
-
-  const handleCountryChange = useCallback((val: string) => {
-    onUpdate("countryCode", val);
-    onUpdate("leagueId", "");
-    onUpdate("homeTeamId", "");
-    onUpdate("awayTeamId", "");
-  }, [onUpdate]);
-
-  const handleLeagueChange = useCallback((val: string) => {
-    onUpdate("leagueId", val);
-    onUpdate("homeTeamId", "");
-    onUpdate("awayTeamId", "");
-  }, [onUpdate]);
+  // Filter teams based on the selected league in THIS card
+  const filteredTeams = teams.filter(t => t.league_id === match.leagueId);
 
   return (
-    <GlassCard className="relative">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-bold text-primary">المباراة {index + 1}</h3>
+    <div className="glass-card p-4 relative overflow-hidden">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2 flex-1">
+          <GripVertical className="w-5 h-5 text-muted-foreground" />
+          {renderSelect(
+            match.countryCode,
+            (e) => onUpdate(match.id, "countryCode", e.target.value),
+            "اختر الدولة", 
+            countries.map(c => ({ value: c.code, label: `${c.flag_emoji} ${c.name_ar}` }))
+          )}
+          {renderSelect(
+            match.leagueId, 
+            (e) => onUpdate(match.id, "leagueId", e.target.value), 
+            "اختر البطولة", 
+            filteredLeagues.map(l => ({ value: l.id, label: l.name_ar })),
+            !match.countryCode // Disable if no country is selected
+          )}
+        </div>
         {canDelete && (
-          <button onClick={onRemove} className="text-muted-foreground hover:text-destructive transition-colors">
-            <Trash2 className="w-4 h-4" />
+          <button onClick={onRemove} className="p-2 text-red-500 hover:bg-red-500/10 rounded-full transition-colors">
+            <Trash2 className="w-5 h-5" />
           </button>
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <FormField label="الدولة" required>
-          <LogoSelect value={match.countryCode} onValueChange={handleCountryChange} options={countryOptions} placeholder="اختر الدولة" />
-        </FormField>
-
-        <FormField label="الدوري">
-          <LogoSelect value={match.leagueId} onValueChange={handleLeagueChange} options={leagueOptions} placeholder="اختر الدوري (اختياري)" disabled={!match.countryCode} />
-        </FormField>
-
-        <FormField label="الفريق المضيف" required>
-          <LogoSelect value={match.homeTeamId} onValueChange={(v) => onUpdate("homeTeamId", v)} options={teamOptions} placeholder="اختر الفريق" disabled={!match.countryCode} />
-        </FormField>
-
-        <FormField label="الفريق الضيف" required>
-          <LogoSelect value={match.awayTeamId} onValueChange={(v) => onUpdate("awayTeamId", v)} options={teamOptions} placeholder="اختر الفريق" disabled={!match.countryCode} />
-        </FormField>
-
-        <FormField label="التاريخ" required>
-          <Input type="date" value={match.date} onChange={(e) => onUpdate("date", e.target.value)} className="bg-secondary border-border text-foreground" />
-        </FormField>
-
-        <FormField label="الوقت" required>
-          <Input type="time" value={match.time} onChange={(e) => onUpdate("time", e.target.value)} className="bg-secondary border-border text-foreground" />
-        </FormField>
-
-        <FormField label="القناة">
-          <LogoSelect value={match.channelId} onValueChange={(v) => onUpdate("channelId", v)} options={channelOptions} placeholder="اختر القناة" />
-        </FormField>
-
-        <FormField label="المعلق">
-          <LogoSelect value={match.commentatorId} onValueChange={(v) => onUpdate("commentatorId", v)} options={commentatorOptions} placeholder="اختر المعلق" />
-        </FormField>
+      <div className="grid grid-cols-3 items-center text-center gap-4 mb-4">
+        <div className="space-y-2">
+          {renderSelect(
+            match.homeTeamId, 
+            (e) => onUpdate(match.id, "homeTeamId", e.target.value), 
+            "الفريق المضيف", 
+            filteredTeams.map(t => ({ value: t.id, label: t.name_ar })),
+            !match.leagueId // Disable if no league is selected
+          )}
+        </div>
+        <div className="font-black text-2xl text-muted-foreground">VS</div>
+        <div className="space-y-2">
+           {renderSelect(
+            match.awayTeamId, 
+            (e) => onUpdate(match.id, "awayTeamId", e.target.value), 
+            "الفريق الضيف", 
+            filteredTeams.map(t => ({ value: t.id, label: t.name_ar })),
+            !match.leagueId // Disable if no league is selected
+          )}
+        </div>
       </div>
-    </GlassCard>
+      
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        {renderSelect(
+          match.channelId, 
+          (e) => onUpdate(match.id, "channelId", e.target.value), 
+          "اختر القناة", 
+          channels.map(c => ({ value: c.id, label: c.name_ar }))
+        )}
+        {renderSelect(
+          match.commentatorId, 
+          (e) => onUpdate(match.id, "commentatorId", e.target.value), 
+          "اختر المعلق", 
+          commentators.map(c => ({ value: c.id, label: c.name_ar }))
+        )}
+      </div>
+
+      <div className="flex justify-center gap-2 border-t border-white/10 pt-4">
+        <input
+          type="date"
+          value={match.date}
+          onChange={(e) => onUpdate(match.id, "date", e.target.value)}
+          className="w-1/2 bg-slate-200/50 dark:bg-slate-800/60 text-foreground font-bold text-center rounded-lg border-slate-200/50 dark:border-slate-700/50 shadow-sm focus:ring-2 focus:ring-primary focus:border-primary/5 transition-all"
+        />
+        <input
+          type="time"
+          value={match.time}
+          onChange={(e) => onUpdate(match.id, "time", e.target.value)}
+          className="w-1/2 bg-slate-200/50 dark:bg-slate-800/60 text-foreground font-bold text-center rounded-lg border-slate-200/50 dark:border-slate-700/50 shadow-sm focus:ring-2 focus:ring-primary focus:border-primary/5 transition-all"
+        />
+      </div>
+
+      {/* Decorative element */}
+      <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-primary/20 rounded-full blur-2xl" />
+    </div>
   );
 };
 

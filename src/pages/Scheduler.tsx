@@ -1,21 +1,101 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, Plus, Eye, Loader2 } from "lucide-react";
-import { N8N_WEBHOOK_URL } from "@/lib/supabase";
-import { supabase } from "@/lib/supabase";
+import { N8N_WEBHOOK_URL, supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
 import MatchCard, { Match, createEmptyMatch } from "@/components/scheduler/MatchCard";
 import ReviewScreen from "@/components/scheduler/ReviewScreen";
 
 type Step = "build" | "review";
 
+// Types matching the ACTUAL database schema
+export interface Country {
+  id: number;
+  code: string;
+  name_ar: string;
+  flag_emoji: string;
+}
+
+export interface League {
+  id: string;
+  name_ar: string;
+  logo_url: string | null;
+  country_code: string;
+}
+
+export interface Team {
+  id: string;
+  name_ar: string;
+  logo_url: string | null;
+  league_id: string;
+  country_code: string;
+}
+
+export interface Channel {
+  id: string;
+  name_ar: string;
+  logo_url: string | null;
+}
+
+export interface Commentator {
+  id: string;
+  name_ar: string;
+  image_url: string | null;
+}
+
 const Scheduler = () => {
-  const { user } = useAuth();
   const [matches, setMatches] = useState<Match[]>([createEmptyMatch()]);
   const [step, setStep] = useState<Step>("build");
   const [sending, setSending] = useState(false);
+
+  // States for all fetched data, as per previous working architecture
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [leagues, setLeagues] = useState<League[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [commentators, setCommentators] = useState<Commentator[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [
+          countriesRes,
+          leaguesRes,
+          teamsRes,
+          channelsRes,
+          commentatorsRes,
+        ] = await Promise.all([
+          supabase.from("countries").select("id, name_ar, code, flag_emoji"),
+          supabase.from("leagues").select("id, name_ar, logo_url, country_code"),
+          supabase.from("teams").select("id, league_id, name_ar, logo_url, country_code"),
+          supabase.from("channels").select("id, name_ar, logo_url"),
+          supabase.from("commentators").select("id, name_ar, image_url"),
+        ]);
+
+        if (countriesRes.error) throw countriesRes.error;
+        if (leaguesRes.error) throw leaguesRes.error;
+        if (teamsRes.error) throw teamsRes.error;
+        if (channelsRes.error) throw channelsRes.error;
+        if (commentatorsRes.error) throw commentatorsRes.error;
+
+        setCountries(countriesRes.data || []);
+        setLeagues(leaguesRes.data || []);
+        setTeams(teamsRes.data || []);
+        setChannels(channelsRes.data || []);
+        setCommentators(commentatorsRes.data || []);
+
+      } catch (error: any) {
+        toast({ title: "خطأ في جلب البيانات", description: error.message, variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const addMatch = () => setMatches([...matches, createEmptyMatch()]);
 
@@ -25,12 +105,31 @@ const Scheduler = () => {
   };
 
   const updateMatch = (id: string, field: keyof Match, value: string) => {
-    setMatches((prev) => prev.map((m) => (m.id === id ? { ...m, [field]: value } : m)));
+    setMatches((prev) =>
+      prev.map((m) => {
+        if (m.id === id) {
+          const newMatch = { ...m, [field]: value };
+          // When a country is chosen, reset the league and teams
+          if (field === 'countryCode') {
+            newMatch.leagueId = '';
+            newMatch.homeTeamId = '';
+            newMatch.awayTeamId = '';
+          }
+          // When a league is chosen, reset the teams
+          if (field === 'leagueId') {
+            newMatch.homeTeamId = '';
+            newMatch.awayTeamId = '';
+          }
+          return newMatch;
+        }
+        return m;
+      })
+    );
   };
 
   const validateAndReview = () => {
     const incomplete = matches.some(
-      (m) => !m.homeTeamId || !m.awayTeamId || !m.date || !m.time
+      (m) => !m.countryCode || !m.homeTeamId || !m.awayTeamId || !m.leagueId || !m.channelId || !m.commentatorId || !m.date || !m.time
     );
     if (incomplete) {
       toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة لكل مباراة", variant: "destructive" });
@@ -39,39 +138,10 @@ const Scheduler = () => {
     setStep("review");
   };
 
-  const resolveMatchData = async (match: Match) => {
-    const [teamRes, leagueRes, channelRes, commentatorRes, countryRes] = await Promise.all([
-      supabase.from("teams").select("id, name_ar, logo_url").in("id", [match.homeTeamId, match.awayTeamId]),
-      match.leagueId ? supabase.from("leagues").select("id, name_ar, logo_url").eq("id", match.leagueId) : Promise.resolve({ data: null }),
-      match.channelId ? supabase.from("channels").select("id, name_ar, logo_url").eq("id", match.channelId) : Promise.resolve({ data: null }),
-      match.commentatorId ? supabase.from("commentators").select("id, name_ar, image_url").eq("id", match.commentatorId) : Promise.resolve({ data: null }),
-      match.countryCode ? supabase.from("countries").select("code, name_ar, flag_emoji").eq("code", match.countryCode) : Promise.resolve({ data: null }),
-    ]);
-
-    const teamsMap = (teamRes.data || []).reduce<Record<string, any>>((acc, t) => { acc[t.id] = t; return acc; }, {});
-
-    return {
-      date: match.date,
-      time: match.time,
-      country: countryRes.data?.[0] || null,
-      league: leagueRes.data?.[0] || null,
-      homeTeam: teamsMap[match.homeTeamId] || { id: match.homeTeamId },
-      awayTeam: teamsMap[match.awayTeamId] || { id: match.awayTeamId },
-      channel: channelRes.data?.[0] || null,
-      commentator: commentatorRes.data?.[0] || null,
-    };
-  };
-
   const handleConfirmSend = async () => {
     setSending(true);
     try {
-      const enrichedMatches = await Promise.all(matches.map(resolveMatchData));
-
-      const payload = {
-        matches: enrichedMatches,
-        sentAt: new Date().toISOString(),
-        sentBy: { uid: user?.id, email: user?.email, name: user?.user_metadata?.display_name },
-      };
+      const payload = { matches: matches.map(({countryCode, ...rest}) => rest) }; // Exclude countryCode from final payload
 
       const res = await fetch(N8N_WEBHOOK_URL, {
         method: "POST",
@@ -79,7 +149,10 @@ const Scheduler = () => {
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const errorBody = await res.text();
+        throw new Error(`HTTP ${res.status} - ${res.statusText}. Body: ${errorBody}`);
+      }
 
       toast({ title: "تم الإرسال", description: `تم إرسال ${matches.length} مباراة بنجاح` });
       setMatches([createEmptyMatch()]);
@@ -94,7 +167,16 @@ const Scheduler = () => {
   if (step === "review") {
     return (
       <Layout>
-        <ReviewScreen matches={matches} sending={sending} onBack={() => setStep("build")} onConfirm={handleConfirmSend} />
+        <ReviewScreen 
+            matches={matches} 
+            sending={sending} 
+            onBack={() => setStep("build")} 
+            onConfirm={handleConfirmSend}
+            leagues={leagues}
+            teams={teams}
+            channels={channels}
+            commentators={commentators}
+        />
       </Layout>
     );
   }
@@ -110,29 +192,41 @@ const Scheduler = () => {
           <p className="text-sm text-muted-foreground">أضف المباريات ثم راجع وأرسل الجدولة</p>
         </div>
 
-        <div className="space-y-4">
-          {matches.map((match, index) => (
-            <MatchCard
-              key={match.id}
-              match={match}
-              index={index}
-              canDelete={matches.length > 1}
-              onUpdate={(field, value) => updateMatch(match.id, field, value)}
-              onRemove={() => removeMatch(match.id)}
-            />
-          ))}
-        </div>
+        {loading ? (
+            <div className="flex justify-center items-center p-10">
+                <Loader2 className="w-8 h-8 animate-spin" />
+            </div>
+        ) : (
+            <div className="space-y-4">
+              {matches.map((match, index) => (
+                <MatchCard
+                  key={match.id}
+                  match={match}
+                  index={index}
+                  canDelete={matches.length > 1}
+                  onUpdate={updateMatch}
+                  onRemove={() => removeMatch(match.id)}
+                  countries={countries}
+                  leagues={leagues}
+                  teams={teams}
+                  channels={channels}
+                  commentators={commentators}
+                />
+              ))}
+            </div>
+        )}
 
         <div className="flex justify-center">
           <button
             onClick={addMatch}
-            className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-neon hover:scale-110 transition-transform"
+            disabled={loading}
+            className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-neon hover:scale-110 transition-transform disabled:opacity-50"
           >
             <Plus className="w-6 h-6" />
           </button>
         </div>
 
-        <Button onClick={validateAndReview} className="w-full" size="lg">
+        <Button onClick={validateAndReview} className="w-full" size="lg" disabled={loading}>
           <Eye className="w-5 h-5 ml-2" />
           مراجعة وإرسال ({matches.length})
         </Button>

@@ -5,4 +5,5 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export const N8N_WEBHOOK_URL = 'https://n8n.twfik.pro/webhook/e92a8b27-c104-4573-9a3d-a5146c641151';
+// CRITICAL FIX: Using the correct, working webhook URL from the reference project.
+export const N8N_WEBHOOK_URL = 'https://n8n-main-service.onrender.com/webhook/442e9fbf-fb12-422f-b517-59eea10aedfb';

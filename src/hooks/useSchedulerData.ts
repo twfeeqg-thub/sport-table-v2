@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -43,8 +44,12 @@ export function useCountries() {
       .from("countries")
       .select("code, name_ar, flag_emoji")
       .order("name_ar")
-      .then(({ data }) => {
-        setCountries(data || []);
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("Error fetching countries:", error);
+        } else {
+          setCountries(data || []);
+        }
         setLoading(false);
       });
   }, []);
@@ -63,8 +68,9 @@ export function useLeagues(countryCode: string) {
       .from("leagues")
       .select("id, name_ar, logo_url, country_code")
       .eq("country_code", countryCode)
-      .then(({ data }) => {
-        setLeagues(data || []);
+      .then(({ data, error }) => {
+        if(error) console.error("Error fetching leagues:", error)
+        else setLeagues(data || []);
         setLoading(false);
       });
   }, [countryCode]);
@@ -81,7 +87,7 @@ export function useTeams(leagueId: string, countryCode?: string) {
     const key = `${leagueId}|${countryCode}`;
     if (key === prevKey.current) return;
     prevKey.current = key;
-
+    
     if (!leagueId && !countryCode) { setTeams([]); return; }
     setLoading(true);
     let query = supabase.from("teams").select("id, name_ar, logo_url, league_id, country_code");
@@ -90,8 +96,9 @@ export function useTeams(leagueId: string, countryCode?: string) {
     } else if (countryCode) {
       query = query.eq("country_code", countryCode);
     }
-    query.then(({ data }) => {
-      setTeams(data || []);
+    query.then(({ data, error }) => {
+      if(error) console.error("Error fetching teams:", error)
+      else setTeams(data || []);
       setLoading(false);
     });
   }, [leagueId, countryCode]);
@@ -107,8 +114,9 @@ export function useChannels() {
     supabase
       .from("channels")
       .select("id, name_ar, logo_url")
-      .then(({ data }) => {
-        setChannels(data || []);
+      .then(({ data, error }) => {
+        if(error) console.error("Error fetching channels:", error)
+        else setChannels(data || []);
         setLoading(false);
       });
   }, []);
@@ -124,8 +132,9 @@ export function useCommentators() {
     supabase
       .from("commentators")
       .select("id, name_ar, image_url")
-      .then(({ data }) => {
-        setCommentators(data || []);
+      .then(({ data, error }) => {
+        if(error) console.error("Error fetching commentators:", error)
+        else setCommentators(data || []);
         setLoading(false);
       });
   }, []);
