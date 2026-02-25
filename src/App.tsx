@@ -1,3 +1,5 @@
+
+import { useState, useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,10 +16,13 @@ import Scheduler from "./pages/Scheduler";
 import Manage from "./pages/Manage";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
-import { Loader2 } from "lucide-react";
+import { Loader2, Download } from "lucide-react";
+import SplashScreen from './components/ui/SplashScreen';
+import { Button } from './components/ui/button';
 
 const queryClient = new QueryClient();
 
+// Unchanged from previous version
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   if (loading) return (
@@ -29,6 +34,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Unchanged from previous version
 const AuthRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   if (loading) return (
@@ -55,18 +61,67 @@ const AppRoutes = () => (
   </Routes>
 );
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  const [showSplash, setShowSplash] = useState(true);
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+
+  useEffect(() => {
+    // Force SplashScreen for 2 seconds
+    const splashTimer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2000);
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event);
+      setShowInstallBanner(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      clearTimeout(splashTimer);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    installPrompt.userChoice.then(() => {
+      setShowInstallBanner(false);
+      setInstallPrompt(null);
+    });
+  };
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <SplashScreen show={showSplash} />
+
+        {showInstallBanner && (
+          <div className="fixed bottom-20 right-4 z-50 bg-secondary text-secondary-foreground p-3 rounded-lg shadow-lg flex items-center gap-4 animate-in fade-in slide-in-from-bottom-5">
+            <p className="text-sm font-semibold">تجربة أفضل؟ ثبت التطبيق على جهازك</p>
+            <Button onClick={handleInstallClick} size="sm">
+              <Download className="w-4 h-4 ml-2" />
+              تثبيت
+            </Button>
+          </div>
+        )}
+
+        <BrowserRouter>
+          <AuthProvider>
+            <div className={showSplash ? 'invisible' : 'visible'}>
+              <AppRoutes />
+            </div>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

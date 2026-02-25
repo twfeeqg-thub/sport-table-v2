@@ -1,3 +1,4 @@
+
 import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Home, ClipboardList, CalendarDays, User } from "lucide-react";
@@ -27,13 +28,19 @@ const Layout = ({ children }: LayoutProps) => {
       <header className="fixed top-0 inset-x-0 z-40 bg-background/80 backdrop-blur-lg border-b border-white/5">
          <div className="max-w-2xl mx-auto flex justify-between items-center p-4">
             <div>
-              {/* Potentially a logo here in the future */}
+              <Link to="/">
+                  <img src="/logo.png" alt="AI-Uncode Logo" className="w-10 h-10" />
+              </Link>
             </div>
             <ThemeToggle />
          </div>
       </header>
       
       <main className="pt-20 px-4 max-w-2xl mx-auto">{children}</main>
+
+      <footer className="text-center text-xs text-slate-400 py-4 fixed bottom-16 inset-x-0">
+        <p>المدير التنفيذي: المهندس توفيق العبدلي | Powered by <a href="https://aiuncode.com" target="_blank" rel="noopener noreferrer" className="hover:text-primary">aiuncode.com</a></p>
+      </footer>
 
       <nav className="fixed bottom-0 inset-x-0 z-50 bg-background/80 backdrop-blur-xl border-t border-white/5 safe-area-bottom">
         <div className="flex items-center justify-around h-16 max-w-2xl mx-auto">
