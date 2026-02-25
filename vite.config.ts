@@ -9,12 +9,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      // This is the crucial addition: tells the plugin to generate a service worker.
       strategies: 'generateSW',
       workbox: {
-        // This ensures all assets output by the build process are precached.
         globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
       },
+      // This section will now automatically generate icons and the manifest.
       includeAssets: ["/logo.png"],
       manifest: {
         "short_name": "الرياضي الذكي",
@@ -22,20 +21,32 @@ export default defineConfig({
         "description": "نظام إدارة المحتوى الرياضي بدعم من AI-Uncode. المدير التنفيذي: المهندس توفيق العبدلي",
         "icons": [
           {
-            "src": "/logo.png",
+            "src": "/pwa-192x192.png",
+            "sizes": "192x192",
             "type": "image/png",
-            "sizes": "192x192"
+            "purpose": "any"
           },
           {
-            "src": "/logo.png",
+            "src": "/pwa-512x512.png",
+            "sizes": "512x512",
             "type": "image/png",
-            "sizes": "512x512"
+            "purpose": "any"
+          },
+          {
+            "src": "/pwa-maskable-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
           }
         ],
         "start_url": "/",
         "display": "standalone",
         "theme_color": "#020617",
         "background_color": "#020617"
+      },
+      // This will add the apple-touch-icon link to the index.html
+      devOptions: {
+        enabled: true,
       },
     }),
   ],
@@ -45,5 +56,4 @@ export default defineConfig({
     },
   },
 });
-
 
