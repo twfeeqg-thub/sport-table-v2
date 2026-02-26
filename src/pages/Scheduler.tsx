@@ -4,6 +4,7 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, Plus, Eye, Loader2 } from "lucide-react";
 import { N8N_WEBHOOK_URL, supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import MatchCard, { Match, createEmptyMatch } from "@/components/scheduler/MatchCard";
 import ReviewScreen from "@/components/scheduler/ReviewScreen";
@@ -45,10 +46,26 @@ export interface Commentator {
   image_url: string | null;
 }
 
+// Added Profile interface for user data
+interface Profile {
+    avatar_url: string;
+    fb_url: string;
+    tw_url: string;
+    snap_url: string;
+    insta_url: string;
+    tele_url: string;
+    wa_url: string;
+    main_social_platform: string;
+}
+
+
 const Scheduler = () => {
+  const { user } = useAuth();
   const [matches, setMatches] = useState<Match[]>([createEmptyMatch()]);
   const [step, setStep] = useState<Step>("build");
   const [sending, setSending] = useState(false);
+  const [userProfile, setUserProfile] = useState<Profile | null>(null);
+
 
   // States for all fetched data, as per previous working architecture
   const [countries, setCountries] = useState<Country[]>([]);
@@ -57,6 +74,35 @@ const Scheduler = () => {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [commentators, setCommentators] = useState<Commentator[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Effect to fetch user profile data
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (user) {
+        try {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("avatar_url, fb_url, tw_url, snap_url, insta_url, tele_url, wa_url, main_social_platform")
+            .eq("id", user.id)
+            .single();
+
+          if (error) {
+            console.warn("Could not fetch user profile, proceeding without it.", error.message);
+            setUserProfile(null);
+          } else {
+            setUserProfile(data);
+          }
+        } catch (error: any) {
+          console.error("An unexpected error occurred while fetching user profile:", error.message);
+          setUserProfile(null);
+        }
+      } else {
+        setUserProfile(null);
+      }
+    };
+    fetchUserProfile();
+  }, [user]);
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -141,7 +187,11 @@ const Scheduler = () => {
   const handleConfirmSend = async () => {
     setSending(true);
     try {
-      const payload = { matches: matches.map(({countryCode, ...rest}) => rest) }; // Exclude countryCode from final payload
+      const payload = { 
+        user_profile: userProfile,
+        matches: matches.map(({countryCode, ...rest}) => rest),
+        exported_at: new Date().toISOString()
+      }; // Exclude countryCode from final payload
 
       const res = await fetch(N8N_WEBHOOK_URL, {
         method: "POST",

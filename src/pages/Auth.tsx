@@ -1,17 +1,22 @@
+
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trophy, Loader2, LogIn, UserPlus } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 const Auth = () => {
-  const { signIn, signUp } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const { signIn, signUp } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,9 +25,9 @@ const Auth = () => {
       if (isLogin) {
         await signIn(email, password);
       } else {
-        await signUp(email, password, displayName);
+        await signUp(email, password, fullName);
       }
-      toast({ title: isLogin ? "تم تسجيل الدخول" : "تم إنشاء الحساب بنجاح" });
+      toast({ title: isLogin ? "تم تسجيل الدخول" : "تم إنشاء الحساب بنجاح. يرجى مراجعة بريدك الإلكتروني للتفعيل." });
     } catch (error: any) {
       toast({ title: "خطأ", description: error.message, variant: "destructive" });
     } finally {
@@ -31,56 +36,36 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <div className="w-full max-w-sm space-y-8">
-        {/* Logo */}
-        <div className="text-center space-y-3">
-          <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center mx-auto animate-glow">
-            <Trophy className="w-8 h-8 text-primary" />
-          </div>
-          <h1 className="text-2xl font-bold neon-text">سبورت سي إم إس</h1>
-          <p className="text-sm text-muted-foreground">نظام إدارة المحتوى الرياضي</p>
+    <div className="flex items-center justify-center min-h-screen bg-background p-4">
+      <div className="w-full max-w-md mx-auto">
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold">
+            {isLogin ? "تسجيل الدخول" : "إنشاء حساب"}
+          </h1>
+          <p className="text-muted-foreground">
+            {isLogin ? "مرحباً بعودتك!" : "حساب جديد للوصول للميزات الكاملة"}
+          </p>
         </div>
 
-        {/* Form */}
-        <div className="glass-card p-6 space-y-5">
-          <div className="flex gap-2">
-            <Button
-              variant={isLogin ? "default" : "outline"}
-              className="flex-1"
-              onClick={() => setIsLogin(true)}
-              type="button"
-            >
-              <LogIn className="w-4 h-4 ml-2" />
-              دخول
-            </Button>
-            <Button
-              variant={!isLogin ? "default" : "outline"}
-              className="flex-1"
-              onClick={() => setIsLogin(false)}
-              type="button"
-            >
-              <UserPlus className="w-4 h-4 ml-2" />
-              تسجيل
-            </Button>
-          </div>
-
+        <div className="bg-card p-6 sm:p-8 rounded-lg shadow-lg border border-border">
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-muted-foreground">الاسم</label>
+                <Label htmlFor="fullName">الاسم الكامل</Label>
                 <Input
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="أدخل اسمك"
+                  id="fullName"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="أدخل اسمك الكامل"
                   className="bg-secondary border-border"
                   required={!isLogin}
                 />
               </div>
             )}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-muted-foreground">البريد الإلكتروني</label>
+              <Label htmlFor="email">البريد الإلكتروني</Label>
               <Input
+                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -91,23 +76,53 @@ const Auth = () => {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-muted-foreground">كلمة المرور</label>
+              <Label htmlFor="password">كلمة المرور</Label>
               <Input
+                id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="********"
                 className="bg-secondary border-border"
                 dir="ltr"
                 required
-                minLength={6}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+
+            {/* ADD-ON: Privacy Policy Checkbox and Link injected into the form */}
+            {!isLogin && (
+                <div className="flex items-center space-x-2 space-x-reverse pt-2">
+                    <Checkbox id="terms" checked={agreed} onCheckedChange={(checked) => setAgreed(checked === true)} />
+                    <Label
+                        htmlFor="terms"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                        أوافق على{" "}
+                        <Link to="/privacy-policy" target="_blank" className="underline text-primary hover:text-primary/80">
+                        سياسة الخصوصية وشروط الاستخدام
+                        </Link>
+                    </Label>
+                </div>
+            )}
+
+            {/* FIX: Button is now correctly disabled based on the 'agreed' state */}
+            <Button type="submit" className="w-full" disabled={loading || (!isLogin && !agreed)}>
               {loading && <Loader2 className="w-4 h-4 animate-spin ml-2" />}
               {isLogin ? "تسجيل الدخول" : "إنشاء حساب"}
             </Button>
           </form>
+        </div>
+
+        <div className="mt-6 text-center">
+          <p className="text-sm">
+            {isLogin ? "ليس لديك حساب؟" : "هل لديك حساب بالفعل؟"}{" "}
+            <button
+              onClick={() => setIsLogin(!isLogin)}
+              className="font-semibold text-primary hover:underline"
+            >
+              {isLogin ? "أنشئ حساباً" : "سجل الدخول"}
+            </button>
+          </p>
         </div>
       </div>
     </div>
