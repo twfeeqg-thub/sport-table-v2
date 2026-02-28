@@ -161,11 +161,13 @@ const Scheduler = () => {
             newMatch.homeTeamId = '';
             newMatch.awayTeamId = '';
           }
-          // When a league is chosen, reset the teams
+          // [AIUNCODE-MOD] Add-on: Logic for resetting teams on league change is now disabled to decouple dependency.
+          /*
           if (field === 'leagueId') {
             newMatch.homeTeamId = '';
             newMatch.awayTeamId = '';
           }
+          */
           return newMatch;
         }
         return m;

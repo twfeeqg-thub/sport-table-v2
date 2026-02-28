@@ -70,8 +70,10 @@ const MatchCard = ({
     .filter(l => l.country_code === match.countryCode)
     .map(l => ({ value: l.id, label: l.name_ar, logo_url: l.logo_url }));
 
+  // [AIUNCODE-MOD] Add-on: Widen team filtering to country instead of league.
   const filteredTeams: SelectorOption[] = teams
-    .filter(t => t.league_id === match.leagueId)
+    .filter(t => t.country_code === match.countryCode) // New logic: filter by country
+    // .filter(t => t.league_id === match.leagueId) // Old logic: Kept for reference as per AIUNCODE protocol.
     .map(t => ({ value: t.id, label: t.name_ar, logo_url: t.logo_url }));
 
   const channelOptions: SelectorOption[] = channels.map(c => ({ 
@@ -128,7 +130,7 @@ const MatchCard = ({
             options={filteredLeagues}
             value={match.leagueId}
             onChange={(value) => onUpdate(match.id, "leagueId", value)}
-            placeholder="اختر البطولة"
+            placeholder="البطولة (اختياري)"
             searchPlaceholder="...ابحث عن بطولة"
             emptyText="اختر دولة أولاً"
             disabled={isLocked || !match.countryCode}
@@ -150,8 +152,8 @@ const MatchCard = ({
             onChange={(value) => onUpdate(match.id, "homeTeamId", value)}
             placeholder="الفريق A"
             searchPlaceholder="...ابحث عن فريق"
-            emptyText="اختر بطولة أولاً"
-            disabled={isLocked || !match.leagueId}
+            emptyText="اختر الدولة أولاً لعرض الأندية"
+            disabled={isLocked || !match.countryCode}
             showLogo={true}
             className={fieldClassName}
         />
@@ -162,8 +164,8 @@ const MatchCard = ({
             onChange={(value) => onUpdate(match.id, "awayTeamId", value)}
             placeholder="الفريق B"
             searchPlaceholder="...ابحث عن فريق"
-            emptyText="اختر بطولة أولاً"
-            disabled={isLocked || !match.leagueId}
+            emptyText="اختر الدولة أولاً لعرض الأندية"
+            disabled={isLocked || !match.countryCode}
             showLogo={true}
             className={fieldClassName}
         />
