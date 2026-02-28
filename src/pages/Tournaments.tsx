@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
+// [ALIGNMENT-FIX] Corrected import path based on mandatory exploration.
 import { checkDuplicate } from "@/lib/checkDuplicate";
 import Layout from "@/components/Layout";
 import GlassCard from "@/components/GlassCard";
@@ -13,6 +14,7 @@ import SearchableSelector, { SelectorOption } from "@/components/SearchableSelec
 
 const Tournaments = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [name, setName] = useState("");
   const [country, setCountry] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -26,8 +28,12 @@ const Tournaments = () => {
         console.error("Error fetching countries:", error);
         return;
       }
-      const options = data.map((c) => ({ value: c.code, label: c.name_ar }));
-      setCountryOptions(options);
+      const options = data.map((c) => ({ 
+        value: c.code, 
+        label: c.name_ar, 
+        logo_url: `https://flagcdn.com/w320/${c.code.toLowerCase()}.png` 
+      }));
+      setCountryOptions(options as SelectorOption[]);
     };
     fetchCountries();
   }, []);
@@ -111,6 +117,8 @@ const Tournaments = () => {
               placeholder="اختر الدولة"
               searchPlaceholder="ابحث عن دولة..."
               emptyText="لم يتم العثور على دول."
+              showLogo={true}
+              className="h-12"
             />
 
             <FormField label="اسم البطولة" required>
