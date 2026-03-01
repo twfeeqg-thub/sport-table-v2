@@ -16,6 +16,7 @@ import Scheduler from "./pages/Scheduler";
 import Manage from "./pages/Manage";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import PrivacyPolicy from "./pages/PrivacyPolicy"; // Import PrivacyPolicy
 import { Loader2, Download } from "lucide-react";
 import SplashScreen from './components/ui/SplashScreen';
 import { Button } from './components/ui/button';
@@ -57,6 +58,7 @@ const AppRoutes = () => (
     <Route path="/commentators" element={<ProtectedRoute><Commentators /></ProtectedRoute>} />
     <Route path="/scheduler" element={<ProtectedRoute><Scheduler /></ProtectedRoute>} />
     <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+    <Route path="/privacy-policy" element={<PrivacyPolicy />} /> 
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

@@ -2,15 +2,40 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-// [ALIGNMENT-FIX] Corrected import path based on mandatory exploration.
 import { checkDuplicate } from "@/lib/checkDuplicate";
 import Layout from "@/components/Layout";
 import GlassCard from "@/components/GlassCard";
 import FileUpload from "@/components/FileUpload";
 import { FormField, StyledInput } from "@/components/FormComponents";
 import { Button } from "@/components/ui/button";
-import { Trophy, Plus, Loader2 } from "lucide-react";
+import { Trophy, Plus, Loader2, Edit, Trash2 } from "lucide-react";
 import SearchableSelector, { SelectorOption } from "@/components/SearchableSelector";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+interface Tournament {
+  id: number;
+  name_ar: string;
+  country_code: string;
+  logo_url: string;
+  country_name: string;
+}
 
 const Tournaments = () => {
   const { user } = useAuth();
@@ -20,8 +45,26 @@ const Tournaments = () => {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [countryOptions, setCountryOptions] = useState<SelectorOption[]>([]);
+  
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [tournamentToDelete, setTournamentToDelete] = useState<Tournament | null>(null);
+
+  const fetchTournaments = async () => {
+    const { data, error } = await supabase
+      .from('tournaments')
+      .select('*');
+    if (error) {
+      console.error('Error fetching tournaments:', error);
+      setTournaments([]);
+      return;
+    }
+    setTournaments(data || []);
+  };
 
   useEffect(() => {
+    fetchTournaments();
     const fetchCountries = async () => {
       const { data, error } = await supabase.from("countries").select("code, name_ar");
       if (error) {
@@ -43,12 +86,19 @@ const Tournaments = () => {
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `tournaments/${fileName}`;
 
-    const { error } = await supabase.storage.from("assets").upload(filePath, file);
-    if (error) throw new Error(`Failed to upload logo: ${error.message}`);
+    const { error: uploadError } = await supabase.storage.from("assets").upload(filePath, file);
+    if (uploadError) throw new Error(`Failed to upload logo: ${uploadError.message}`);
 
     const { data } = supabase.storage.from("assets").getPublicUrl(filePath);
     return data.publicUrl;
   };
+  
+  const resetForm = () => {
+      setName("");
+      setCountry("");
+      setLogoFile(null);
+      setEditingTournament(null);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,40 +106,48 @@ const Tournaments = () => {
       toast({ title: "Error", description: "Login required", variant: "destructive" });
       return;
     }
-    if (!name.trim() || !country || !logoFile) {
+    if (!name.trim() || !country || (!logoFile && !editingTournament)) {
       toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة وتحميل الشعار", variant: "destructive" });
       return;
     }
 
     setLoading(true);
     try {
-      const exists = await checkDuplicate("tournaments", "name_ar", name.trim());
-      if (exists) {
-        const overwrite = window.confirm("This name already exists. Do you want to overwrite it?");
-        if (!overwrite) {
-          setLoading(false);
-          return;
-        }
+      if (!editingTournament) {
+          const exists = await checkDuplicate("tournaments", "name_ar", name.trim());
+          if (exists) {
+            const overwrite = window.confirm("This name already exists. Do you want to overwrite it?");
+            if (!overwrite) {
+              setLoading(false);
+              return;
+            }
+          }
       }
 
-      const logoUrl = await uploadLogo(logoFile);
+      let logoUrl = editingTournament?.logo_url || '';
+      if (logoFile) {
+          logoUrl = await uploadLogo(logoFile);
+      }
 
-      const { error } = await supabase.from("tournaments").upsert(
-        {
-          name_ar: name.trim(),
-          country_code: country,
-          logo_url: logoUrl,
-          user_id: user.id,
-        },
-        { onConflict: "name_ar" }
-      );
+      const upsertData: any = {
+        name_ar: name.trim(),
+        country_code: country,
+        logo_url: logoUrl,
+        user_id: user.id,
+      };
+
+      if(editingTournament) {
+          upsertData.id = editingTournament.id;
+      }
+
+      const { error } = await supabase.from("tournaments").upsert(upsertData, { onConflict: editingTournament ? "id" : "name_ar" });
+
 
       if (error) throw error;
 
-      toast({ title: "تم بنجاح", description: exists ? "تم تحديث البطولة بنجاح" : "تم إضافة البطولة بنجاح" });
-      setName("");
-      setCountry("");
-      setLogoFile(null);
+      toast({ title: "تم بنجاح", description: editingTournament ? "تم تحديث البطولة بنجاح" : "تم إضافة البطولة بنجاح" });
+      resetForm();
+      fetchTournaments();
     } catch (error: any) {
       toast({ title: "خطأ", description: error.message, variant: "destructive" });
     } finally {
@@ -97,9 +155,45 @@ const Tournaments = () => {
     }
   };
 
+  const handleEdit = (tournament: Tournament) => {
+    setEditingTournament(tournament);
+    setName(tournament.name_ar);
+    setCountry(tournament.country_code);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const openDeleteDialog = (tournament: Tournament) => {
+    setTournamentToDelete(tournament);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!tournamentToDelete) return;
+
+    try {
+      const { error } = await supabase.from('tournaments').delete().match({ id: tournamentToDelete.id });
+      if (error) throw error;
+
+      if (tournamentToDelete.logo_url) {
+          const logoPath = tournamentToDelete.logo_url.split('/').slice(-2).join('/');
+          if (logoPath) {
+            await supabase.storage.from('assets').remove([logoPath]);
+          }
+      }
+      
+      toast({ title: "تم الحذف", description: "تم حذف البطولة بنجاح." });
+      fetchTournaments();
+    } catch (error: any) {
+      toast({ title: "خطأ في الحذف", description: error.message, variant: "destructive" });
+    } finally {
+        setIsDeleteDialogOpen(false);
+        setTournamentToDelete(null);
+    }
+  };
+
   return (
     <Layout>
-      <div className="space-y-6 max-w-2xl">
+      <div className="space-y-6 max-w-4xl mx-auto">
         <div>
           <h1 className="text-2xl font-bold neon-text mb-1 flex items-center gap-3">
             <Trophy className="w-7 h-7" />
@@ -134,16 +228,74 @@ const Tournaments = () => {
               onFileChange={setLogoFile}
               label="شعار البطولة"
               disabled={!name.trim()}
-              previewUrl={logoFile ? URL.createObjectURL(logoFile) : null}
+              previewUrl={logoFile ? URL.createObjectURL(logoFile) : (editingTournament ? editingTournament.logo_url : null)}
             />
 
-            <Button type="submit" disabled={!country || !name.trim() || !logoFile || loading} className="w-full">
+            <Button type="submit" disabled={!country || !name.trim() || loading} className="w-full">
               {loading ? <Loader2 className="w-4 h-4 animate-spin ml-2" /> : <Plus className="w-4 h-4 ml-2" />}
-              إضافة / تحديث البطولة
+              {editingTournament ? 'تحديث البطولة' : 'إضافة البطولة'}
             </Button>
+            {editingTournament && (
+                <Button variant="outline" onClick={resetForm} className="w-full">
+                    إلغاء التعديل
+                </Button>
+            )}
           </form>
         </GlassCard>
+
+        <div className="mt-8">
+            <h2 className="text-xl font-bold mb-4">قائمة البطولات</h2>
+            <GlassCard>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[100px]">الشعار</TableHead>
+                    <TableHead>اسم البطولة</TableHead>
+                    <TableHead>الدولة</TableHead>
+                    <TableHead className="text-right">إجراءات</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tournaments.map((tournament) => (
+                    <TableRow key={tournament.id}>
+                      <TableCell>
+                        <img src={tournament.logo_url} alt={tournament.name_ar} className="w-10 h-10 object-contain rounded-full bg-white/10 p-1" />
+                      </TableCell>
+                      <TableCell className="font-medium">{tournament.name_ar}</TableCell>
+                      <TableCell>{tournament.country_code}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Button variant="outline" size="icon" onClick={() => handleEdit(tournament)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button variant="destructive" size="icon" onClick={() => openDeleteDialog(tournament)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </GlassCard>
+        </div>
       </div>
+       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد أنك تريد حذف بطولة '{tournamentToDelete?.name_ar}'؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 };
