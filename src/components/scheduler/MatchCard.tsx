@@ -91,25 +91,31 @@ const MatchCard = ({
   return (
     <div className="glass-card p-4 relative overflow-hidden">
       <div className="grid grid-cols-2 gap-2 mb-4 border-b border-white/10 pb-4">
-         <input
-          type="date"
-          value={match.date}
-          onChange={(e) => onUpdate(match.id, "date", e.target.value)}
-          className={cn(
-            "w-full bg-slate-200/50 dark:bg-slate-800/60 text-foreground font-bold text-center rounded-lg border-slate-200/50 dark:border-slate-700/50 shadow-sm focus:ring-2 focus:ring-primary focus:border-primary/5 transition-all",
-            fieldClassName
-          )}
-        />
-        <input
-          type="time"
-          value={match.time}
-          onChange={(e) => onUpdate(match.id, "time", e.target.value)}
-          className={cn(
-            "w-full bg-slate-200/50 dark:bg-slate-800/60 text-foreground font-bold text-center rounded-lg border-slate-200/50 dark:border-slate-700/50 shadow-sm focus:ring-2 focus:ring-primary focus:border-primary/5 transition-all",
-            fieldClassName
+        <div>
+          <label className="block text-sm font-medium mb-1">تاريخ البث</label>
+          <input
+            type="date"
+            value={match.date}
+            onChange={(e) => onUpdate(match.id, "date", e.target.value)}
+            className={cn(
+              "w-full bg-slate-200/50 dark:bg-slate-800/60 text-foreground font-bold text-center rounded-lg border-slate-200/50 dark:border-slate-700/50 shadow-sm focus:ring-2 focus:ring-primary focus:border-primary/5 transition-all",
+              fieldClassName
             )}
-            disabled={isLocked}
-        />
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">وقت البث</label>
+          <input
+            type="time"
+            value={match.time}
+            onChange={(e) => onUpdate(match.id, "time", e.target.value)}
+            className={cn(
+              "w-full bg-slate-200/50 dark:bg-slate-800/60 text-foreground font-bold text-center rounded-lg border-slate-200/50 dark:border-slate-700/50 shadow-sm focus:ring-2 focus:ring-primary focus:border-primary/5 transition-all",
+              fieldClassName
+              )}
+              disabled={isLocked}
+          />
+        </div>
       </div>
 
       <div className="flex items-center gap-2 mb-4">
