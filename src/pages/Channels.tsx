@@ -146,7 +146,20 @@ const Channels = () => {
         upsertData.id = editingChannel.id;
       }
 
-      const { error } = await supabase.from("channels").upsert(upsertData, { onConflict: editingChannel ? "id" : "name_ar" });
+      // [AIUNCODE-MOD] START: Add-on Only Upsert Strategy
+      // The original upsert is commented out to prevent execution while preserving the original code.
+      // This was causing an error because 'name_ar' is not a unique constraint by itself.
+      // const { error } = await supabase.from("channels").upsert(upsertData, { onConflict: editingChannel ? "id" : "name_ar" });
+
+      // The new upsert strategy uses a composite key ('name_ar', 'country_code') for the conflict target.
+      // This assumes a unique index has been created on these two columns in the 'channels' table.
+      // This is an "Add-on" approach as it extends the conflict resolution logic without removing the original.
+      const { error } = await supabase
+        .from("channels")
+        .upsert(upsertData, { 
+          onConflict: editingChannel ? "id" : "name_ar,country_code" 
+        });
+      // [AIUNCODE-MOD] END
 
       if (error) throw error;
 
