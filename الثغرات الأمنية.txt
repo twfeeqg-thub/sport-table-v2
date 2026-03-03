@@ -1,0 +1,379 @@
+================================================================================
+                    تقرير الفحص الأمني الشامل (Security Audit)
+================================================================================
+                    المشروع: الرياضي الذكي | AI-Uncode
+                    تاريخ الفحص: 2026-03-03
+================================================================================
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│                           ملخص التنفيذ                                      │
+└────────────────────────────────────────────────────────────────────────────┘
+
+نوع التطبيق: تطبيق React/Vite مع Supabase Backend
+لغة البرمجة: TypeScript
+إطار العمل: React Router v6
+
+================================================================================
+│                           الثغرات المكتشفة                                   │
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+█                           [CRITICAL] - حرج                                  │
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ الثغرة #1: مفاتيح API وبيانات حساسة مُشفرة بالثابت                         │
+└────────────────────────────────────────────────────────────────────────────┘
+
+الموقع: src/lib/supabase.ts (السطور 3-9)
+
+الرمز الحالي:
+──────────────────────────────────────────────────────────────────────────────
+const supabaseUrl = 'https://fcbwvqlusiplwrqaualn.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6
+ImZjYnd2cWx1c2lwbHdycWF1YWxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzMzgwNTAsImV4cCI6MjA4MDkxNDA1MH0
+.ge4VLkjA56L2OJpvFg_wneAGHAYNll3BntC0YY_vVn0';
+export const N8N_WEBHOOK_URL = 'https://n8n-main-service.onrender.com/webhook/442e9fbf-fb12-422f-b517-59eea10aedfb';
+──────────────────────────────────────────────────────────────────────────────
+
+المخاطر:
+• تسرب مفتاح Supabase Anonymous العام في الكود المصدري
+• تسرب رابط webhook خارجي (n8n)
+• إمكانية استغلال هذه المفاتيح للوصول غير المصرح به لقاعدة البيانات
+• يمكن للمهاجم قراءة/تعديل/حذف البيانات عبر استخدام هذه المفاتيح
+
+درجة الخطورة: CRITICAL (حرج)
+
+الحل المقترح:
+──────────────────────────────────────────────────────────────────────────────
+الخطوة 1: أنشئ ملف .env في جذر المشروع
+──────────────────────────────────────────────────────────────────────────────
+# ملاحظة: أضف هذا الملف لـ .gitignore إذا لم يكن موجوداً
+
+VITE_SUPABASE_URL=https://fcbwvqlusiplwrqaualn.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+VITE_N8N_WEBHOOK_URL=https://n8n-main-service.onrender.com/webhook/...
+
+الخطوة 2: عدل ملف src/lib/supabase.ts
+──────────────────────────────────────────────────────────────────────────────
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+export const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
+
+الخطوة 3: حدث ملف .gitignore
+──────────────────────────────────────────────────────────────────────────────
+أضف السطور التالية إذا لم تكن موجودة:
+.env
+.env.local
+.env.*.local
+
+الخطوة 4: أعد توليد مفاتيح Supabase
+──────────────────────────────────────────────────────────────────────────────
+• اذهب إلى Dashboard Supabase
+• Settings > API
+• أعد تولير anon key و service_role key
+• حدث المفاتيح في .env
+
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+█                           [MEDIUM] - متوسط                                  │
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ الثغرة #2: غياب التحقق من الصلاحيات (Authorization)                         │
+└────────────────────────────────────────────────────────────────────────────┘
+
+المواقع المتأثرة:
+• src/pages/Manage.tsx
+• src/pages/Tournaments.tsx (السطور 57-174)
+• src/pages/Clubs.tsx (السطور 54-181)
+• src/pages/Channels.tsx (السطور 61-194)
+• src/pages/Commentators.tsx (السطور 57-171)
+
+الوصف:
+الصفحات الإدارية تسمح لأي مستخدم مسجل (authenticated user) بتنفيذ عمليات:
+• إضافة بيانات جديدة (INSERT)
+• تعديل البيانات الموجودة (UPDATE)
+• حذف البيانات (DELETE)
+
+لا يوجد تحقق من أن المستخدم لديه صلاحية الإدارية (admin role).
+
+الكود الحالي (مثال من Tournaments.tsx):
+──────────────────────────────────────────────────────────────────────────────
+const { error } = await supabase.from('tournaments').delete().match({ id: tournamentToDelete.id });
+──────────────────────────────────────────────────────────────────────────────
+
+المخاطر:
+• المستخدم العادي يمكنه حذف/تعديل أي بيانات
+• عدم وجود فصل بين صلاحيات المستخدم العادي والمشرف
+• يمكن للمستخدم حذف جميع البطولات بدون قيود
+
+درجة الخطورة: MEDIUM (متوسط)
+
+الحل المقترح:
+──────────────────────────────────────────────────────────────────────────────
+الخطوة 1: أنشئ جدول الصلاحيات في Supabase
+──────────────────────────────────────────────────────────────────────────────
+-- أنشئ جدول roles
+CREATE TABLE public.roles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT UNIQUE NOT NULL,
+  permissions JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- أدخل الأدوار الأساسية
+INSERT INTO public.roles (name, permissions) VALUES
+  ('admin', '["read", "write", "delete", "manage_users"]'::jsonb),
+  ('editor', '["read", "write"]'::jsonb),
+  ('user', '["read"]'::jsonb);
+
+-- أنشئ جدول user_roles
+CREATE TABLE public.user_roles (
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  role_id UUID REFERENCES public.roles(id) ON DELETE CASCADE,
+  assigned_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (user_id, role_id)
+);
+
+الخطوة 2: أنشئ hook للتحقق من الصلاحيات
+──────────────────────────────────────────────────────────────────────────────
+// src/hooks/useAuthorization.ts
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { useState, useEffect } from 'react';
+
+export type Permission = 'read' | 'write' | 'delete' | 'manage_users';
+
+export const useAuthorization = (requiredPermission: Permission) => {
+  const { user } = useAuth();
+  const [hasPermission, setHasPermission] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkPermission = async () => {
+      if (!user) {
+        setHasPermission(false);
+        setLoading(false);
+        return;
+      }
+
+      const { data } = await supabase
+        .from('user_roles')
+        .select('roles!inner(permissions)')
+        .eq('user_id', user.id)
+        .single();
+
+      if (data?.roles?.permissions) {
+        const permissions = data.roles.permissions as Permission[];
+        setHasPermission(permissions.includes(requiredPermission));
+      }
+      setLoading(false);
+    };
+
+    checkPermission();
+  }, [user, requiredPermission]);
+
+  return { hasPermission, loading };
+};
+
+الخطوة 3: طبق التحقق في الصفحات الإدارية
+──────────────────────────────────────────────────────────────────────────────
+// src/pages/Tournaments.tsx
+import { useAuthorization } from '@/hooks/useAuthorization';
+
+const Tournaments = () => {
+  const { hasPermission, loading } = useAuthorization('write');
+
+  if (loading) return <Loading />;
+  if (!hasPermission) return <Unauthorized />;
+
+  // بقية الكود...
+};
+
+الخطوة 4: استخدم Row Level Security (RLS) في Supabase
+──────────────────────────────────────────────────────────────────────────────
+-- تفعيل RLS على جدول tournaments
+ALTER TABLE public.tournaments ENABLE ROW LEVEL SECURITY;
+
+-- سياسة الكتابة للمشرفين فقط
+CREATE POLICY "Admin write access" ON public.tournaments
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.user_roles
+      JOIN public.roles ON roles.id = user_roles.role_id
+      WHERE user_roles.user_id = auth.uid()
+      AND roles.permissions @> '["write"]'::jsonb
+    )
+  );
+
+-- سياسة الحذف للمشرفين فقط
+CREATE POLICY "Admin delete access" ON public.tournaments
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1 FROM public.user_roles
+      JOIN public.roles ON roles.id = user_roles.role_id
+      WHERE user_roles.user_id = auth.uid()
+      AND roles.permissions @> '["delete"]'::jsonb
+    )
+  );
+
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+█                           [LOW] - منخفض                                     │
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ الثغرة #3: تسرب المعلومات عبر Console                                      │
+└────────────────────────────────────────────────────────────────────────────┘
+
+المواقع:
+• src/pages/Scheduler.tsx:96
+• src/pages/Profile.tsx:72,94
+• src/pages/Tournaments.tsx:59,71
+• src/pages/Commentators.tsx:59,71
+• src/pages/Clubs.tsx:63,76
+• src/pages/Channels.tsx:64,79
+• src/pages/NotFound.tsx:8
+• src/hooks/useSchedulerData.ts:49,72,100,118,136
+
+الوصف:
+استخدام console.error و console.log في بيئة الإنتاج قد يكشف عن:
+• مسارات الملفات الداخلية
+• أسماء الجداول والحقول
+• رسائل الخطأ التفصيلية من قاعدة البيانات
+
+الكود الحالي:
+──────────────────────────────────────────────────────────────────────────────
+console.error("Error fetching tournaments:", error);
+console.log("No profile found, creating a new one.");
+──────────────────────────────────────────────────────────────────────────────
+
+درجة الخطورة: LOW (منخفض)
+
+الحل المقترح:
+──────────────────────────────────────────────────────────────────────────────
+// أنشئ ملف src/lib/logger.ts
+const isDev = import.meta.env.DEV;
+
+export const logger = {
+  error: (message: string, ...args: unknown[]) => {
+    if (isDev) {
+      console.error(message, ...args);
+    }
+    // أرسل الأخطاء الخطيرة لنظام المراقبة في الإنتاج
+  },
+  log: (message: string, ...args: unknown[]) => {
+    if (isDev) {
+      console.log(message, ...args);
+    }
+  },
+};
+
+export const formatError = (error: unknown): string => {
+  // في الإنتاج، أعد رسالة عامة فقط
+  if (!isDev) {
+    return 'حدث خطأ غير متوقع. يرجى المحاولة لاحقاً.';
+  }
+  return error instanceof Error ? error.message : String(error);
+};
+
+================================================================================
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ الثغرة #4: استخدام dangerouslySetInnerHTML                                │
+└────────────────────────────────────────────────────────────────────────────┘
+
+الموقع: src/components/ui/chart.tsx:70
+
+الوصف:
+المكون يستخدم dangerouslySetInnerHTML لإنشاء أنماط CSS ديناميكية
+
+الحالة: LOW RISK (منخفض الخطورة)
+
+التحليل:
+• البيانات الممررة (config) تأتي من props داخلية
+• لا توجد مدخلات مستخدم مباشرة
+• يُستخدم فقط لتطبيق ألوان المخططات
+
+درجة الخطورة: LOW (منخفض) - لا يتطلب إجراء فوري
+
+================================================================================
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ الثغرة #5: تخزين Theme Preference في localStorage                         │
+└────────────────────────────────────────────────────────────────────────────┘
+
+الموقع: src/contexts/ThemeContext.tsx:26,48
+
+الوصف:
+تخزين theme preference في localStorage
+
+درجة الخطورة: LOW (منخفض)
+
+الحالة: آمن - لا يحتوي على بيانات حساسة
+
+================================================================================
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│                        الملاحظات الأمنية                                    │
+└────────────────────────────────────────────────────────────────────────────┘
+
+✓ لم يتم العثور على ثغرات XSS (Cross-Site Scripting)
+✓ لم يتم العثور على ثغرات SQL Injection (Supabase يتعامل مع هذا تلقائياً)
+✓ لم يتم العثور على استخدام eval() أو document.write()
+✓ تطبيق Supabase RLS مفعل (افتراضياً)
+
+================================================================================
+│                           توصيات عامة                                       │
+================================================================================
+
+1. تدوير المفاتيح المعروضة
+   • أعد تولير مفاتيح Supabase فوراً
+   • غيّر رابط webhook n8n
+
+2. تفعيل HTTPS
+   • تأكد من تفعيل SSL على النطاق
+
+3. مراقبة الوصول
+   • فعّل سجلات التدقيق (Audit Logs) في Supabase
+   • راقب العمليات غير الطبيعية
+
+4. تحديث dependencias
+   • تحقق من تحديث الحزم بانتظام
+   • استخدم npm audit للبحث عن ثغرات معروفة
+
+5. النسخ الاحتياطي
+   • فعّل النسخ الاحتياطي التلقائي لقاعدة البيانات
+
+================================================================================
+│                           خاتمة                                             │
+================================================================================
+
+تاريخ التقرير: 2026-03-03
+المُفحص: Security Audit Tool
+الإصدار: 1.0
+
+ملخص الثغرات:
+┌──────────────┬─────────┬────────────┐
+│   الخطورة    │ العدد   │   الحالة   │
+├──────────────┼─────────┼────────────┤
+│ CRITICAL     │    1    │ ❌ يتطلب إصلاح فوري │
+│ MEDIUM       │    1    │ ⚠️ يحتاج معالجة    │
+│ LOW          │    3    │ ℹ️ تحسينات اختيارية │
+└──────────────┴─────────┴────────────┘
+
+================================================================================
+                              نهاية التقرير
+================================================================================
