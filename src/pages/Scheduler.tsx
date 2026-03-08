@@ -189,32 +189,78 @@ const Scheduler = () => {
   const handleConfirmSend = async () => {
     setSending(true);
     try {
-      const payload = { 
-        user_profile: userProfile,
-        matches: matches.map(({countryCode, ...rest}) => rest),
-        exported_at: new Date().toISOString()
-      }; // Exclude countryCode from final payload
+        // [ADD-ON] Start: New Payload Transformation Logic
+        const formattedMatches = matches.map(match => {
+            const league = leagues.find(l => l.id === match.leagueId);
+            const homeTeam = teams.find(t => t.id === match.homeTeamId);
+            const awayTeam = teams.find(t => t.id === match.awayTeamId);
+            const channel = channels.find(c => c.id === match.channelId);
+            const commentator = commentators.find(c => c.id === match.commentatorId);
 
-      const res = await fetch(N8N_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+            return {
+                date: match.date,
+                time: match.time,
+                league: {
+                    name: league?.name_ar || null,
+                    logo: league?.logo_url || null,
+                },
+                homeTeam: {
+                    name: homeTeam?.name_ar || null,
+                    logo: homeTeam?.logo_url || null,
+                },
+                awayTeam: {
+                    name: awayTeam?.name_ar || null,
+                    logo: awayTeam?.logo_url || null,
+                },
+                channel: {
+                    name: channel?.name_ar || null,
+                    logo: channel?.logo_url || null,
+                },
+                commentator: {
+                    name: commentator?.name_ar || null,
+                },
+            };
+        });
 
-      if (!res.ok) {
-        const errorBody = await res.text();
-        throw new Error(`HTTP ${res.status} - ${res.statusText}. Body: ${errorBody}`);
-      }
+        const mainDate = new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-      toast({ title: "تم الإرسال", description: `تم إرسال ${matches.length} مباراة بنجاح` });
-      setMatches([createEmptyMatch()]);
-      setStep("build");
+        const newPayload = {
+            mainTitle: "مباريات اليوم",
+            mainDate: mainDate,
+            matches: formattedMatches,
+        };
+        // [ADD-ON] End: New Payload Transformation Logic
+
+        // The original payload logic is preserved below as per the Golden Rule,
+        // but the new payload will be used for sending.
+        const originalPayload = {
+            user_profile: userProfile,
+            matches: matches.map(({ countryCode, ...rest }) => rest),
+            exported_at: new Date().toISOString()
+        };
+
+        const res = await fetch(N8N_WEBHOOK_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            // Switch to the new payload
+            body: JSON.stringify(newPayload),
+        });
+
+        if (!res.ok) {
+            const errorBody = await res.text();
+            throw new Error(`HTTP ${res.status} - ${res.statusText}. Body: ${errorBody}`);
+        }
+
+        toast({ title: "تم الإرسال", description: `تم إرسال ${matches.length} مباراة بنجاح` });
+        setMatches([createEmptyMatch()]);
+        setStep("build");
     } catch (error: any) {
-      toast({ title: "خطأ في الإرسال", description: error.message, variant: "destructive" });
+        toast({ title: "خطأ في الإرسال", description: error.message, variant: "destructive" });
     } finally {
-      setSending(false);
+        setSending(false);
     }
-  };
+};
+
 
   if (step === "review") {
     return (
