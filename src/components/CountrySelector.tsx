@@ -1,4 +1,10 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { COUNTRIES } from "@/lib/countries";
 
 interface CountrySelectorProps {
@@ -21,7 +27,11 @@ const CountrySelector = ({ value, onChange, className = "" }: CountrySelectorPro
           {COUNTRIES.map((country) => (
             <SelectItem key={country.code} value={country.code} className="text-foreground">
               <span className="flex items-center gap-2">
-                <span>{country.flag}</span>
+                <img 
+                  src={country.flag} 
+                  alt={country.name}
+                  className="w-5 h-auto"
+                />
                 <span>{country.name}</span>
               </span>
             </SelectItem>
