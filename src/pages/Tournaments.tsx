@@ -34,7 +34,9 @@ interface Tournament {
   name_ar: string;
   country_code: string;
   logo_url: string;
-  country_name: string;
+  countries: {
+    name_ar: string;
+  } | null;
 }
 
 const Tournaments = () => {
@@ -54,7 +56,7 @@ const Tournaments = () => {
   const fetchTournaments = async () => {
     const { data, error } = await supabase
       .from('tournaments')
-      .select('*');
+      .select('*, countries(name_ar)');
     if (error) {
       console.error('Error fetching tournaments:', error);
       setTournaments([]);
@@ -262,7 +264,16 @@ const Tournaments = () => {
                         <img src={tournament.logo_url} alt={tournament.name_ar} className="w-10 h-10 object-contain rounded-full bg-white/10 p-1" />
                       </TableCell>
                       <TableCell className="font-medium">{tournament.name_ar}</TableCell>
-                      <TableCell>{tournament.country_code}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={`https://flagcdn.com/${tournament.country_code?.toLowerCase()}.svg`}
+                            alt={tournament.countries?.name_ar || tournament.country_code}
+                            className="w-6 h-4 object-cover rounded-sm"
+                          />
+                          <span>{tournament.countries?.name_ar || tournament.country_code}</span>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
                           <Button variant="outline" size="icon" onClick={() => handleEdit(tournament)}>
